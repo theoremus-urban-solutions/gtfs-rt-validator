@@ -1,0 +1,32 @@
+# Binaries
+gtfsrt-validator
+cmd/gtfsrt-validator/gtfsrt-validator
+
+# Build outputs
+/bin/
+/dist/
+/build/
+/out/
+
+# Test and coverage artifacts
+*.test
+*.coverprofile
+coverage.*
+
+# Editor/OS/caches
+.DS_Store
+.idea/
+.vscode/
+.cache/
+
+# Go workspace files (local only)
+go.work
+go.work.sum
+
+# Local results/artifacts
+*.results.json
+/tmp/
+*.pb.txt
+
+todo
+
