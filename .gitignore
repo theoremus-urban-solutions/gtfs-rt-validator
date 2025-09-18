@@ -1,6 +1,3 @@
-# Binaries
-gtfsrt-validator
-cmd/gtfsrt-validator/gtfsrt-validator
 
 # Build outputs
 /bin/
@@ -30,3 +27,4 @@ go.work.sum
 
 todo
 
+guidelines.md
