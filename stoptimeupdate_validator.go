@@ -6,9 +6,11 @@ import (
 	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
 
-type StopTimeUpdateValidator struct{}
+type StopTimeUpdateValidator struct {
+	RTOnly bool // When true, skip checks that require static GTFS (W017, W031, W032, W034)
+}
 
-func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
+func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
 	var out []ErrorList
 	seqMapCache := make(map[string]map[int]string)
 
@@ -41,18 +43,18 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 
 			if stu.GetScheduleRelationship() != rt.TripUpdate_StopTimeUpdate_SKIPPED && stu.GetScheduleRelationship() != rt.TripUpdate_StopTimeUpdate_NO_DATA {
 				if stu.GetArrival() == nil && stu.GetDeparture() == nil {
-					out = append(out, el("E043", "trip_id "+tripID))
+					out = append(out, el("W029", "trip_id "+tripID))
 				}
 			}
 
 			if ev := stu.GetArrival(); ev != nil {
 				if ev.GetDelay() == 0 && ev.GetTime() == 0 {
-					out = append(out, el("E044", "trip_id "+tripID))
+					out = append(out, el("W030", "trip_id "+tripID))
 				}
 			}
 			if ev := stu.GetDeparture(); ev != nil {
 				if ev.GetDelay() == 0 && ev.GetTime() == 0 {
-					out = append(out, el("E044", "trip_id "+tripID))
+					out = append(out, el("W030", "trip_id "+tripID))
 				}
 			}
 
@@ -61,7 +63,7 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 					out = append(out, el("E036", "trip_id "+tripID))
 				}
 				if stu.GetStopId() != "" && prevStopID != "" && stu.GetStopId() == prevStopID {
-					out = append(out, el("E037", "trip_id "+tripID))
+					out = append(out, el("W012", "trip_id "+tripID))
 				}
 				if stu.GetStopSequence() != 0 && int(stu.GetStopSequence()) <= prevSeq {
 					out = append(out, el("E002", "trip_id "+tripID))
@@ -74,7 +76,8 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				prevStopID = stu.GetStopId()
 			}
 
-			if stu.GetStopSequence() != 0 && stu.GetStopId() != "" {
+			// W031, W034: Skip in RT-only mode (requires static GTFS stop_times)
+			if !v.RTOnly && meta != nil && stu.GetStopSequence() != 0 && stu.GetStopId() != "" {
 				m := seqMapCache[tripID]
 				if m == nil {
 					m = GetSeqMap()
@@ -85,10 +88,10 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				}
 				if sid, ok := m[int(stu.GetStopSequence())]; ok {
 					if sid != stu.GetStopId() {
-						out = append(out, el("E045", "trip_id "+tripID))
+						out = append(out, el("W031", "trip_id "+tripID))
 					}
 				} else {
-					out = append(out, el("E051", "trip_id "+tripID))
+					out = append(out, el("W034", "trip_id "+tripID))
 					hadE051 = true
 				}
 			}
@@ -96,22 +99,28 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				break
 			}
 
-			if (stu.GetArrival() == nil || stu.GetArrival().GetTime() == 0) && (stu.GetDeparture() == nil || stu.GetDeparture().GetTime() == 0) {
-				if seq := int(stu.GetStopSequence()); seq > 0 {
-					for _, st := range meta.StopTimesByTripID[tripID] {
-						if st.StopSequence == seq {
-							if st.ArrivalTime == "" && st.DepartureTime == "" {
-								out = append(out, el("E046", "trip_id "+tripID))
+			// W032: Skip in RT-only mode (requires static GTFS stop_times)
+			if !v.RTOnly && meta != nil {
+				if (stu.GetArrival() == nil || stu.GetArrival().GetTime() == 0) && (stu.GetDeparture() == nil || stu.GetDeparture().GetTime() == 0) {
+					if seq := int(stu.GetStopSequence()); seq > 0 {
+						for _, st := range meta.StopTimesByTripID[tripID] {
+							if st.StopSequence == seq {
+								if st.ArrivalTime == "" && st.DepartureTime == "" {
+									out = append(out, el("W032", "trip_id "+tripID))
+								}
+								break
 							}
-							break
 						}
 					}
 				}
 			}
 
-			if _, hasRepeat := meta.TripsWithMultiStops[tripID]; hasRepeat {
-				if stu.GetStopSequence() == 0 {
-					out = append(out, el("E009", "trip_id "+tripID))
+			// W017: Skip in RT-only mode (requires static GTFS trips with multi-stops)
+			if !v.RTOnly && meta != nil {
+				if _, hasRepeat := meta.TripsWithMultiStops[tripID]; hasRepeat {
+					if stu.GetStopSequence() == 0 {
+						out = append(out, el("W017", "trip_id "+tripID))
+					}
 				}
 			}
 
@@ -123,7 +132,7 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 			}
 			if thisTime != 0 {
 				if prevArr != 0 && thisTime <= prevArr {
-					out = append(out, el("E022", "trip_id "+tripID))
+					out = append(out, el("W010", "trip_id "+tripID))
 				}
 				prevArr = thisTime
 			}
@@ -135,7 +144,7 @@ func (StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Meta
 		}
 
 		if len(tu.GetStopTimeUpdate()) == 0 && tu.GetTrip().GetScheduleRelationship() != rt.TripDescriptor_CANCELED {
-			out = append(out, el("E041", "trip_id "+tripID))
+			out = append(out, el("W013", "trip_id "+tripID))
 		}
 
 		if m := seqMapCache[tripID]; m != nil {

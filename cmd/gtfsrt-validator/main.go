@@ -29,6 +29,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> -rt <file.pb> [-rt2 <file.pb>] [-format console|json|javajson]")
 	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> [-rt-tu <file.pb>] [-rt-vp <file.pb>] [-rt-alerts <file.pb>] [-format console|json|javajson]")
 	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> -rt-path <dir> [-sort name|date] [-format console|json|summary|javajson]")
+	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -rt-only -rt <file.pb> [-format console|json|javajson]")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "RT-only mode validates GTFS-RT spec compliance without static GTFS data.")
 }
 
 func main() {
@@ -61,15 +64,29 @@ func runValidate() {
 	rtDir := fs.String("rt-path", "", "path to directory of .pb files")
 	sortBy := fs.String("sort", "date", "sort order for -rt-path: name|date")
 	format := fs.String("format", "console", "output format: console|json|summary|javajson")
+	rtOnly := fs.Bool("rt-only", false, "validate RT feed without static GTFS (spec compliance only)")
 	_ = fs.Parse(os.Args[2:])
-	if *gtfsPath == "" || (*rtPath == "" && *rtDir == "" && *rtTU == "" && *rtVP == "" && *rtAL == "") {
-		fmt.Fprintln(os.Stderr, "-gtfs and (-rt or -rt-tu/-rt-vp/-rt-alerts or -rt-path) are required")
+
+	hasRTInput := *rtPath != "" || *rtDir != "" || *rtTU != "" || *rtVP != "" || *rtAL != ""
+	if !hasRTInput {
+		fmt.Fprintln(os.Stderr, "at least one RT input is required (-rt, -rt-tu, -rt-vp, -rt-alerts, or -rt-path)")
 		os.Exit(2)
 	}
-	v, err := validator.NewValidator(*gtfsPath, validator.Options{EnableShapes: true})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	if *gtfsPath == "" && !*rtOnly {
+		fmt.Fprintln(os.Stderr, "either -gtfs or -rt-only is required")
+		os.Exit(2)
+	}
+
+	var v *validator.Validator
+	if *rtOnly {
+		v = validator.NewRTOnlyValidator(validator.Options{})
+	} else {
+		var err error
+		v, err = validator.NewValidator(*gtfsPath, validator.Options{EnableShapes: true})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 	ctx := context.Background()
 	// Multi-source single iteration

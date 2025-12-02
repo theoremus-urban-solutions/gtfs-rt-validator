@@ -6,9 +6,11 @@ import (
 	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
 
-type VehicleValidator struct{}
+type VehicleValidator struct {
+	RTOnly bool // When true, skip checks that require static GTFS (W011 bbox)
+}
 
-func (VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
+func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
 	var out []ErrorList
 	seen := make(map[string]struct{})
 
@@ -27,7 +29,7 @@ func (VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata, f
 				out = append(out, el("W002", "vehicle"))
 			} else {
 				if _, dup := seen[vid]; dup {
-					out = append(out, el("E052", "vehicle.id "+vid))
+					out = append(out, el("W014", "vehicle.id "+vid))
 				} else {
 					seen[vid] = struct{}{}
 				}
@@ -43,15 +45,18 @@ func (VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata, f
 				if s := pos.GetSpeed(); s < 0 || s > 26 {
 					out = append(out, el("W004", "vehicle.position.speed"))
 				}
-				lat := float64(pos.GetLatitude())
-				lon := float64(pos.GetLongitude())
-				if meta.ShapeBBoxBuffered != nil {
-					if !meta.ShapeBBoxBuffered.Contains(lat, lon) {
-						out = append(out, el("E028", "vehicle.position"))
-					}
-				} else {
-					if !meta.StopBBoxBuffered.Contains(lat, lon) {
-						out = append(out, el("E028", "vehicle.position"))
+				// W011: Skip bbox check in RT-only mode (requires static GTFS)
+				if !v.RTOnly && meta != nil {
+					lat := float64(pos.GetLatitude())
+					lon := float64(pos.GetLongitude())
+					if meta.ShapeBBoxBuffered != nil {
+						if !meta.ShapeBBoxBuffered.Contains(lat, lon) {
+							out = append(out, el("W011", "vehicle.position"))
+						}
+					} else {
+						if !meta.StopBBoxBuffered.Contains(lat, lon) {
+							out = append(out, el("W011", "vehicle.position"))
+						}
 					}
 				}
 			}

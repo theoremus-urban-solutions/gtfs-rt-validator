@@ -27,28 +27,28 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				trip, ok := meta.TripsByTripID[tripID]
 				if !ok {
 					if td.GetScheduleRelationship() != rt.TripDescriptor_ADDED {
-						out = append(out, el("E003", "trip_id "+tripID))
+						out = append(out, el("W015", "trip_id "+tripID))
 					}
 				} else {
 					if td.GetScheduleRelationship() == rt.TripDescriptor_ADDED {
-						out = append(out, el("E016", "trip_id "+tripID))
+						out = append(out, el("W021", "trip_id "+tripID))
 					}
 					if td.GetStartTime() != "" {
 						if sts := meta.StopTimesByTripID[tripID]; len(sts) > 0 {
 							if sts[0].ArrivalTime != "" && td.GetStartTime() != sts[0].ArrivalTime {
-								out = append(out, el("E023", "trip_id "+tripID))
+								out = append(out, el("W022", "trip_id "+tripID))
 							}
 						}
 					}
 					if td.DirectionId != nil && trip.DirectionID != nil {
 						if td.GetDirectionId() != uint32(*trip.DirectionID) {
-							out = append(out, el("E024", "trip_id "+tripID))
+							out = append(out, el("W023", "trip_id "+tripID))
 						}
 					}
 				}
 				if td.GetRouteId() != "" {
 					if _, ok := meta.RouteIDs[td.GetRouteId()]; !ok {
-						out = append(out, el("E004", "route_id "+td.GetRouteId()))
+						out = append(out, el("W016", "route_id "+td.GetRouteId()))
 					}
 				}
 				if s := td.GetStartTime(); s != "" && !reStartTime.MatchString(s) {
@@ -72,21 +72,21 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				}
 				if aid := ie.GetAgencyId(); aid != "" {
 					if _, ok := meta.AgencyIDs[aid]; !ok {
-						out = append(out, el("E034", "agency_id "+aid))
+						out = append(out, el("W027", "agency_id "+aid))
 					}
 				}
 				if ie.GetTrip() != nil {
 					tid := ie.GetTrip().GetTripId()
 					if trip, ok := meta.TripsByTripID[tid]; ok {
 						if ie.GetRouteId() != "" && trip.RouteID != ie.GetRouteId() {
-							out = append(out, el("E031", "trip_id "+tid))
+							out = append(out, el("W026", "trip_id "+tid))
 						}
 						if td := ie.GetTrip(); td != nil {
 							if td.GetRouteId() != "" && td.GetRouteId() != trip.RouteID {
-								out = append(out, el("E035", "trip_id "+tid))
+								out = append(out, el("W028", "trip_id "+tid))
 							}
 							if ie.GetRouteId() != "" && td.GetRouteId() != "" && td.GetRouteId() != ie.GetRouteId() {
-								out = append(out, el("E030", "trip_id "+tid))
+								out = append(out, el("W025", "trip_id "+tid))
 							}
 						}
 					}

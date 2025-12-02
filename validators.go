@@ -12,27 +12,40 @@ type FeedEntityValidator interface {
 }
 
 type Validator struct {
-	opts Options
-	meta *Metadata
-	prev *rt.FeedMessage
+	opts   Options
+	meta   *Metadata
+	prev   *rt.FeedMessage
+	rtOnly bool
 }
 
 type Options struct {
 	EnableShapes bool
 }
 
+// NewValidator creates a validator that requires static GTFS for full validation.
 func NewValidator(gtfsZipPath string, opts Options) (*Validator, error) {
 	md, err := LoadMetadata(gtfsZipPath, !opts.EnableShapes)
 	if err != nil {
 		return nil, err
 	}
-	return &Validator{opts: opts, meta: md}, nil
+	return &Validator{opts: opts, meta: md, rtOnly: false}, nil
+}
+
+// NewRTOnlyValidator creates a validator that only checks GTFS-RT spec compliance
+// without requiring static GTFS data. Use this for fast fail-fast validation
+// before loading expensive static GTFS metadata.
+func NewRTOnlyValidator(opts Options) *Validator {
+	return &Validator{opts: opts, meta: nil, rtOnly: true}
 }
 
 func (v *Validator) ValidateIteration(ctx context.Context, feed *rt.FeedMessage, combined *rt.FeedMessage) (bool, Result) {
 	now := time.Now().UnixMilli()
 	var lists []ErrorList
-	for _, rule := range DefaultValidators() {
+	validators := DefaultValidators()
+	if v.rtOnly {
+		validators = RTOnlyValidators()
+	}
+	for _, rule := range validators {
 		lists = append(lists, rule.Validate(ctx, now, v.meta, feed, v.prev, combined)...)
 	}
 	v.prev = feed

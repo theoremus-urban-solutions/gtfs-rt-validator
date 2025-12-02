@@ -25,7 +25,7 @@ func (FreqZeroValidator) Validate(ctx context.Context, _ int64, meta *Metadata, 
 					out = append(out, el("E006", "missing trip_id"))
 				}
 				if tu.GetTrip().GetScheduleRelationship() != rt.TripDescriptor_UNSCHEDULED {
-					out = append(out, el("E013", "trip_id "+tid))
+					out = append(out, el("W019", "trip_id "+tid))
 				}
 				if tu.GetVehicle() == nil || tu.GetVehicle().GetId() == "" {
 					out = append(out, el("W005", "trip_id "+tid))
