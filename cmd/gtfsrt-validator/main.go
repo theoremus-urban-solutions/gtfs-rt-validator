@@ -27,7 +27,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "gtfsrt-validator %s\n", version)
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> -rt <file.pb> [-rt2 <file.pb>] [-format console|json|javajson]")
-	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> [-rt-tu <file.pb>] [-rt-vp <file.pb>] [-rt-alerts <file.pb>] [-format console|json|javajson]")
+	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> [-tu <file.pb>] [-vp <file.pb>] [-al <file.pb>] [-format console|json|javajson]")
 	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -gtfs <file.zip> -rt-path <dir> [-sort name|date] [-format console|json|summary|javajson]")
 	fmt.Fprintln(os.Stderr, "  gtfsrt-validator validate -rt-only -rt <file.pb> [-format console|json|javajson]")
 	fmt.Fprintln(os.Stderr, "")
@@ -58,9 +58,9 @@ func runValidate() {
 	gtfsPath := fs.String("gtfs", "", "path to GTFS zip")
 	rtPath := fs.String("rt", "", "path to GTFS-rt .pb file")
 	rtPath2 := fs.String("rt2", "", "optional second GTFS-rt .pb file for combined checks")
-	rtTU := fs.String("rt-tu", "", "TripUpdates .pb for combined checks")
-	rtVP := fs.String("rt-vp", "", "VehiclePositions .pb for combined checks")
-	rtAL := fs.String("rt-alerts", "", "Alerts .pb for combined checks")
+	rtTU := fs.String("tu", "", "TripUpdates .pb for combined checks")
+	rtVP := fs.String("vp", "", "VehiclePositions .pb for combined checks")
+	rtAL := fs.String("al", "", "Alerts .pb for combined checks")
 	rtDir := fs.String("rt-path", "", "path to directory of .pb files")
 	sortBy := fs.String("sort", "date", "sort order for -rt-path: name|date")
 	format := fs.String("format", "console", "output format: console|json|summary|javajson")
@@ -69,7 +69,7 @@ func runValidate() {
 
 	hasRTInput := *rtPath != "" || *rtDir != "" || *rtTU != "" || *rtVP != "" || *rtAL != ""
 	if !hasRTInput {
-		fmt.Fprintln(os.Stderr, "at least one RT input is required (-rt, -rt-tu, -rt-vp, -rt-alerts, or -rt-path)")
+		fmt.Fprintln(os.Stderr, "at least one RT input is required (-rt, -tu, -vp, -al, or -rt-path)")
 		os.Exit(2)
 	}
 	if *gtfsPath == "" && !*rtOnly {
