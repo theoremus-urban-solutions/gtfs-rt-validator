@@ -12,7 +12,7 @@ A high-performance GTFS-Realtime validator written in Go that validates real-tim
 ## Installation
 
 ```bash
-go get your.org/gtfsrt/validator
+go get github.com/theoremus-urban-solutions/gtfs-rt-validator
 ```
 
 ## CLI Usage
@@ -68,7 +68,7 @@ import (
     "os"
 
     rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
-    validator "your.org/gtfsrt/validator"
+    validator "github.com/theoremus-urban-solutions/gtfs-rt-validator"
 )
 
 func main() {

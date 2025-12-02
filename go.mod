@@ -1,4 +1,4 @@
-module your.org/gtfsrt/validator
+module github.com/theoremus-urban-solutions/gtfs-rt-validator
 
 go 1.23.0
 

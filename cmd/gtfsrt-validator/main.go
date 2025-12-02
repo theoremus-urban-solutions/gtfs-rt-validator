@@ -16,7 +16,7 @@ import (
 
 	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 
-	validator "your.org/gtfsrt/validator"
+	validator "github.com/theoremus-urban-solutions/gtfs-rt-validator"
 )
 
 var (
