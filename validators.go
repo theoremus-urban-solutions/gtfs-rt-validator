@@ -59,6 +59,20 @@ func NewValidatorFromBytes(zipData []byte, opts Options) (*Validator, error) {
 	return &Validator{opts: opts, meta: md, rtOnly: false}, nil
 }
 
+// NewValidatorFromInput creates a validator from a GTFS source that can be
+// either a local file path, directory, or HTTP/HTTPS URL.
+// It automatically detects the input type and fetches/loads accordingly.
+func NewValidatorFromInput(gtfsInput string, opts Options) (*Validator, error) {
+	if IsURL(gtfsInput) {
+		data, err := FetchInput(gtfsInput)
+		if err != nil {
+			return nil, err
+		}
+		return NewValidatorFromBytes(data, opts)
+	}
+	return NewValidator(gtfsInput, opts)
+}
+
 // NewRTOnlyValidator creates a validator that only checks GTFS-RT spec compliance
 // without requiring static GTFS data. Use this for fast fail-fast validation
 // before loading expensive static GTFS metadata.
