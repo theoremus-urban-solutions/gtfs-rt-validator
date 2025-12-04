@@ -31,6 +31,34 @@ func NewValidator(gtfsZipPath string, opts Options) (*Validator, error) {
 	return &Validator{opts: opts, meta: md, rtOnly: false}, nil
 }
 
+// NewValidatorFromBytes creates a validator from raw GTFS zip data in memory.
+// This allows integration with systems that already have GTFS data loaded,
+// avoiding redundant disk I/O or duplicate fetching from remote sources.
+//
+// Parameters:
+//   - zipData: Complete GTFS zip file as byte slice
+//   - opts: Validator options (same as NewValidator)
+//
+// Returns:
+//   - *Validator: Initialized validator instance
+//   - error: Any error during GTFS parsing or validation setup
+//
+// Example:
+//
+//	gtfsBytes, _ := os.ReadFile("gtfs.zip")
+//	validator, err := NewValidatorFromBytes(gtfsBytes, Options{EnableShapes: true})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	valid, result := validator.ValidateIteration(ctx, feed, nil)
+func NewValidatorFromBytes(zipData []byte, opts Options) (*Validator, error) {
+	md, err := LoadMetadataFromBytes(zipData, !opts.EnableShapes)
+	if err != nil {
+		return nil, err
+	}
+	return &Validator{opts: opts, meta: md, rtOnly: false}, nil
+}
+
 // NewRTOnlyValidator creates a validator that only checks GTFS-RT spec compliance
 // without requiring static GTFS data. Use this for fast fail-fast validation
 // before loading expensive static GTFS metadata.

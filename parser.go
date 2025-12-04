@@ -15,8 +15,35 @@ func LoadMetadata(path string, ignoreShapes bool) (*Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
+	defer func() { _ = cleanup() }()
 
+	return buildMetadataFromReaders(readers, ignoreShapes)
+}
+
+// LoadMetadataFromBytes parses GTFS metadata from raw zip file bytes.
+// This is used by NewValidatorFromBytes to load GTFS data from memory.
+//
+// Parameters:
+//   - zipData: Complete GTFS zip file as byte slice
+//   - ignoreShapes: If true, skip parsing shapes.txt (faster, less memory)
+//
+// Returns:
+//   - *Metadata: Parsed GTFS metadata structure
+//   - error: Any error during zip extraction or GTFS parsing
+func LoadMetadataFromBytes(zipData []byte, ignoreShapes bool) (*Metadata, error) {
+	readers, cleanup, err := ZipBytesReaders(zipData)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = cleanup() }()
+
+	return buildMetadataFromReaders(readers, ignoreShapes)
+}
+
+// buildMetadataFromReaders contains the shared GTFS parsing logic.
+// This function is called by both LoadMetadata (file path) and
+// LoadMetadataFromBytes (raw bytes).
+func buildMetadataFromReaders(readers map[string]*csv.Reader, ignoreShapes bool) (*Metadata, error) {
 	md := &Metadata{
 		AgencyIDs:             make(map[string]struct{}),
 		RouteIDs:              make(map[string]struct{}),

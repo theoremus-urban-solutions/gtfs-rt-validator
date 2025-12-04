@@ -2,7 +2,9 @@ package validator
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -75,4 +77,56 @@ func isKnownGTFS(name string) bool {
 	default:
 		return false
 	}
+}
+
+// ZipBytesReaders yields csv readers for known GTFS files from raw zip bytes.
+// This allows reading GTFS data from memory without touching the filesystem.
+//
+// Parameters:
+//   - zipData: Complete GTFS zip file as byte slice
+//
+// Returns:
+//   - map[string]*csv.Reader: Map of filename to CSV reader for each GTFS file
+//   - func() error: Cleanup function to close all opened readers
+//   - error: Any error during zip extraction
+func ZipBytesReaders(zipData []byte) (map[string]*csv.Reader, func() error, error) {
+	out := make(map[string]*csv.Reader)
+	var closers []io.Closer
+
+	cleanup := func() error {
+		var firstErr error
+		for _, c := range closers {
+			if err := c.Close(); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
+		return firstErr
+	}
+
+	r := bytes.NewReader(zipData)
+	zipReader, err := zip.NewReader(r, int64(len(zipData)))
+	if err != nil {
+		return nil, func() error { return nil }, fmt.Errorf("failed to open GTFS zip from bytes: %w", err)
+	}
+
+	for _, f := range zipReader.File {
+		base := strings.ToLower(filepath.Base(f.Name))
+		if !isKnownGTFS(base) {
+			continue
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			_ = cleanup()
+			return nil, func() error { return nil }, fmt.Errorf("failed to open %s: %w", f.Name, err)
+		}
+
+		closers = append(closers, rc)
+		csvReader := csv.NewReader(rc)
+		csvReader.FieldsPerRecord = -1
+		csvReader.LazyQuotes = true
+		out[base] = csvReader
+	}
+
+	return out, cleanup, nil
 }
