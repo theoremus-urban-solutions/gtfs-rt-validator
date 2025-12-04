@@ -99,6 +99,32 @@ func main() {
 }
 ```
 
+### Creating a Validator from In-Memory GTFS Data
+
+If you already have GTFS static data in memory (e.g., fetched from a database or HTTP endpoint), you can avoid disk I/O by using `NewValidatorFromBytes()`:
+
+```go
+// Load GTFS from any source (HTTP, database, S3, etc.)
+gtfsBytes, _ := fetchGTFSFromRemote()
+
+// Create validator directly from bytes
+v, err := validator.NewValidatorFromBytes(gtfsBytes, validator.Options{
+    EnableShapes: true,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Use the validator normally
+valid, result := v.ValidateIteration(ctx, feed, nil)
+```
+
+This is particularly useful when:
+- Fetching GTFS from HTTP APIs or S3
+- Using the same GTFS data for both validation and other processing
+- Working in memory-constrained environments where disk I/O should be minimized
+- Building high-throughput validation services
+
 ### Realtime-Only Validation
 
 For fast validation without loading static GTFS (useful for quick spec compliance checks):
