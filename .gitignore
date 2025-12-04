@@ -24,6 +24,14 @@ go.work.sum
 *.results.json
 /tmp/
 *.pb.txt
+*.pbf
+*.zip
+
+# Compiled binaries
+gtfsrt-validator
+
+# Benchmark data
+/benchmark-data/
 
 todo
 
