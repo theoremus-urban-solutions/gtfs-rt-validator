@@ -1,7 +1,11 @@
 package validator
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -350,5 +354,217 @@ func TestCrossFeedValidation_RTOnly(t *testing.T) {
 	}
 	if !found {
 		t.Error("Expected W003 warning for cross-feed ID mismatch")
+	}
+}
+
+// createMinimalGTFSZip creates a minimal valid GTFS zip file in memory for testing.
+func createMinimalGTFSZip(t *testing.T) []byte {
+	t.Helper()
+
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+
+	// agency.txt
+	agency, _ := zw.Create("agency.txt")
+	_, _ = agency.Write([]byte("agency_id,agency_name,agency_url,agency_timezone\ntest_agency,Test Agency,http://example.com,America/New_York\n"))
+
+	// routes.txt
+	routes, _ := zw.Create("routes.txt")
+	_, _ = routes.Write([]byte("route_id,agency_id,route_short_name,route_type\nroute1,test_agency,R1,3\n"))
+
+	// trips.txt
+	trips, _ := zw.Create("trips.txt")
+	_, _ = trips.Write([]byte("trip_id,route_id,service_id,direction_id\ntrip1,route1,weekday,0\n"))
+
+	// stops.txt
+	stops, _ := zw.Create("stops.txt")
+	_, _ = stops.Write([]byte("stop_id,stop_name,stop_lat,stop_lon\nstop1,Stop 1,42.365,23.379\nstop2,Stop 2,42.366,23.380\n"))
+
+	// stop_times.txt
+	stopTimes, _ := zw.Create("stop_times.txt")
+	_, _ = stopTimes.Write([]byte("trip_id,arrival_time,departure_time,stop_id,stop_sequence\ntrip1,08:00:00,08:00:00,stop1,1\ntrip1,08:05:00,08:05:00,stop2,2\n"))
+
+	_ = zw.Close()
+	return buf.Bytes()
+}
+
+func TestNewValidatorFromBytes_BasicValidation(t *testing.T) {
+	gtfsBytes := createMinimalGTFSZip(t)
+
+	// Create validator from bytes
+	v, err := NewValidatorFromBytes(gtfsBytes, Options{})
+	if err != nil {
+		t.Fatalf("NewValidatorFromBytes failed: %v", err)
+	}
+
+	// Create a simple valid GTFS-RT feed
+	now := uint64(time.Now().Unix())
+	feed := &rt.FeedMessage{
+		Header: &rt.FeedHeader{
+			GtfsRealtimeVersion: proto.String("2.0"),
+			Timestamp:           proto.Uint64(now),
+			Incrementality:      rt.FeedHeader_FULL_DATASET.Enum(),
+		},
+		Entity: []*rt.FeedEntity{
+			{
+				Id: proto.String("1"),
+				TripUpdate: &rt.TripUpdate{
+					Trip:    &rt.TripDescriptor{TripId: proto.String("trip1")},
+					Vehicle: &rt.VehicleDescriptor{Id: proto.String("V001")},
+					StopTimeUpdate: []*rt.TripUpdate_StopTimeUpdate{
+						{
+							StopSequence: proto.Uint32(1),
+							StopId:       proto.String("stop1"),
+							Arrival:      &rt.TripUpdate_StopTimeEvent{Time: proto.Int64(int64(now + 100))},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Validate
+	valid, result := v.ValidateIteration(context.Background(), feed, nil)
+
+	if !valid {
+		t.Errorf("Expected valid feed, got errors: %v", result.Errors)
+	}
+}
+
+func TestNewValidatorFromBytes_CompareWithFilePath(t *testing.T) {
+	// Skip if no real GTFS file exists
+	gtfsPath := "sofia-static.zip"
+	if _, err := os.Stat(gtfsPath); os.IsNotExist(err) {
+		t.Skip("No sofia-static.zip available, skipping comparison test")
+	}
+
+	// Load same GTFS via file path
+	v1, err := NewValidator(gtfsPath, Options{})
+	if err != nil {
+		t.Fatalf("NewValidator failed: %v", err)
+	}
+
+	// Load same GTFS via bytes
+	gtfsBytes, err := os.ReadFile(gtfsPath)
+	if err != nil {
+		t.Fatalf("Failed to read GTFS file: %v", err)
+	}
+	v2, err := NewValidatorFromBytes(gtfsBytes, Options{})
+	if err != nil {
+		t.Fatalf("NewValidatorFromBytes failed: %v", err)
+	}
+
+	// Validate same feed with both validators
+	now := uint64(time.Now().Unix())
+	feed := &rt.FeedMessage{
+		Header: &rt.FeedHeader{
+			GtfsRealtimeVersion: proto.String("2.0"),
+			Timestamp:           proto.Uint64(now),
+			Incrementality:      rt.FeedHeader_FULL_DATASET.Enum(),
+		},
+		Entity: []*rt.FeedEntity{},
+	}
+	ctx := context.Background()
+
+	valid1, result1 := v1.ValidateIteration(ctx, feed, nil)
+	valid2, result2 := v2.ValidateIteration(ctx, feed, nil)
+
+	// Results should be identical
+	if valid1 != valid2 {
+		t.Errorf("Validation results differ: file=%v, bytes=%v", valid1, valid2)
+	}
+
+	if len(result1.Errors) != len(result2.Errors) {
+		t.Errorf("Error count differs: file=%d, bytes=%d",
+			len(result1.Errors), len(result2.Errors))
+	}
+
+	if len(result1.Warnings) != len(result2.Warnings) {
+		t.Errorf("Warning count differs: file=%d, bytes=%d",
+			len(result1.Warnings), len(result2.Warnings))
+	}
+}
+
+func TestNewValidatorFromBytes_InvalidZip(t *testing.T) {
+	invalidData := []byte("not a zip file")
+
+	_, err := NewValidatorFromBytes(invalidData, Options{})
+	if err == nil {
+		t.Error("Expected error for invalid zip data")
+	}
+
+	if !strings.Contains(err.Error(), "failed to open") {
+		t.Errorf("Expected 'failed to open' error, got: %v", err)
+	}
+}
+
+func TestNewValidatorFromBytes_EmptyZip(t *testing.T) {
+	// Create empty zip
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	_ = zw.Close()
+
+	v, err := NewValidatorFromBytes(buf.Bytes(), Options{})
+	// Should handle gracefully (empty Metadata, no errors)
+	if err != nil {
+		t.Errorf("Unexpected error for empty zip: %v", err)
+	}
+
+	// Validator should still be usable
+	if v == nil {
+		t.Error("Validator should not be nil for empty zip")
+	}
+}
+
+func TestLoadMetadataFromBytes_AllFiles(t *testing.T) {
+	gtfsBytes := createMinimalGTFSZip(t)
+
+	md, err := LoadMetadataFromBytes(gtfsBytes, false)
+	if err != nil {
+		t.Fatalf("LoadMetadataFromBytes failed: %v", err)
+	}
+
+	// Verify all expected data was loaded
+	if len(md.AgencyIDs) == 0 {
+		t.Error("No agencies loaded")
+	}
+	if len(md.RouteIDs) == 0 {
+		t.Error("No routes loaded")
+	}
+	if len(md.TripsByTripID) == 0 {
+		t.Error("No trips loaded")
+	}
+	if len(md.StopTimesByTripID) == 0 {
+		t.Error("No stop times loaded")
+	}
+	if len(md.StopIDs) == 0 {
+		t.Error("No stops loaded")
+	}
+}
+
+func TestZipBytesReaders_Basic(t *testing.T) {
+	gtfsBytes := createMinimalGTFSZip(t)
+
+	readers, cleanup, err := ZipBytesReaders(gtfsBytes)
+	if err != nil {
+		t.Fatalf("ZipBytesReaders failed: %v", err)
+	}
+	defer func() { _ = cleanup() }()
+
+	// Check that all expected files are present
+	expectedFiles := []string{"agency.txt", "routes.txt", "trips.txt", "stops.txt", "stop_times.txt"}
+	for _, f := range expectedFiles {
+		if _, ok := readers[f]; !ok {
+			t.Errorf("Expected %s to be in readers", f)
+		}
+	}
+}
+
+func TestZipBytesReaders_InvalidData(t *testing.T) {
+	invalidData := []byte("not a zip file")
+
+	_, _, err := ZipBytesReaders(invalidData)
+	if err == nil {
+		t.Error("Expected error for invalid zip data")
 	}
 }
