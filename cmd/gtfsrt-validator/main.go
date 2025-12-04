@@ -55,12 +55,12 @@ func main() {
 
 func runValidate() {
 	fs := flag.NewFlagSet("validate", flag.ExitOnError)
-	gtfsPath := fs.String("gtfs", "", "path to GTFS zip")
-	rtPath := fs.String("rt", "", "path to GTFS-rt .pb file")
-	rtPath2 := fs.String("rt2", "", "optional second GTFS-rt .pb file for combined checks")
-	rtTU := fs.String("tu", "", "TripUpdates .pb for combined checks")
-	rtVP := fs.String("vp", "", "VehiclePositions .pb for combined checks")
-	rtAL := fs.String("al", "", "Alerts .pb for combined checks")
+	gtfsPath := fs.String("gtfs", "", "path or URL to GTFS zip")
+	rtPath := fs.String("rt", "", "path or URL to GTFS-rt .pb file")
+	rtPath2 := fs.String("rt2", "", "optional second GTFS-rt .pb path or URL for combined checks")
+	rtTU := fs.String("tu", "", "TripUpdates .pb path or URL for combined checks")
+	rtVP := fs.String("vp", "", "VehiclePositions .pb path or URL for combined checks")
+	rtAL := fs.String("al", "", "Alerts .pb path or URL for combined checks")
 	rtDir := fs.String("rt-path", "", "path to directory of .pb files")
 	sortBy := fs.String("sort", "date", "sort order for -rt-path: name|date")
 	format := fs.String("format", "console", "output format: console|json|summary|javajson")
@@ -82,7 +82,7 @@ func runValidate() {
 		v = validator.NewRTOnlyValidator(validator.Options{})
 	} else {
 		var err error
-		v, err = validator.NewValidator(*gtfsPath, validator.Options{EnableShapes: true})
+		v, err = validator.NewValidatorFromInput(*gtfsPath, validator.Options{EnableShapes: true})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -233,8 +233,8 @@ func runValidate() {
 	}
 }
 
-func readPB(p string) (*rt.FeedMessage, error) {
-	data, err := os.ReadFile(p)
+func readPB(input string) (*rt.FeedMessage, error) {
+	data, err := validator.FetchInput(input)
 	if err != nil {
 		return nil, err
 	}
