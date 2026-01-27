@@ -18,7 +18,10 @@ type ValidationRule struct {
 }
 
 type Occurrence struct {
-	Prefix string
+	Prefix   string            `json:"prefix"`
+	EntityID string            `json:"entity_id,omitempty"`
+	Value    string            `json:"value,omitempty"`
+	Details  map[string]string `json:"details,omitempty"`
 }
 
 type ErrorList struct {
@@ -122,4 +125,17 @@ func GetRule(id RuleID) ValidationRule {
 		return r
 	}
 	return ValidationRule{ID: id}
+}
+
+// errorListDetailed creates an ErrorList with a detailed Occurrence
+func errorListDetailed(id, prefix, entityID, value string, details map[string]string) ErrorList {
+	return ErrorList{
+		Rule: GetRule(RuleID(id)),
+		Occurrences: []Occurrence{{
+			Prefix:   prefix,
+			EntityID: entityID,
+			Value:    value,
+			Details:  details,
+		}},
+	}
 }

@@ -81,7 +81,10 @@ type validationRule struct {
 }
 
 type occurrenceModel struct {
-	Prefix string `json:"prefix"`
+	Prefix   string            `json:"prefix"`
+	EntityID string            `json:"entityId,omitempty"`
+	Value    string            `json:"value,omitempty"`
+	Details  map[string]string `json:"details,omitempty"`
 }
 
 type ErrorListHelperModel struct {
@@ -101,7 +104,12 @@ func ToCompat(res Result) []ErrorListHelperModel {
 			OccurrenceSuffix: el.Rule.OccurrenceSuffix,
 		}}}
 		for _, oc := range el.Occurrences {
-			m.OccurrenceList = append(m.OccurrenceList, occurrenceModel{Prefix: oc.Prefix})
+			m.OccurrenceList = append(m.OccurrenceList, occurrenceModel{
+				Prefix:   oc.Prefix,
+				EntityID: oc.EntityID,
+				Value:    oc.Value,
+				Details:  oc.Details,
+			})
 		}
 		out = append(out, m)
 	}
