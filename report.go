@@ -7,29 +7,39 @@ import (
 	"strings"
 )
 
+// aggregateByRuleID merges ErrorLists with the same Rule.ID.
+func aggregateByRuleID(lists []ErrorList) []ErrorList {
+	if len(lists) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(lists))
+	byID := make(map[string]ErrorList)
+	for _, el := range lists {
+		id := string(el.Rule.ID)
+		if existing, ok := byID[id]; !ok {
+			ids = append(ids, id)
+			byID[id] = el
+		} else {
+			existing.Occurrences = append(existing.Occurrences, el.Occurrences...)
+			byID[id] = existing
+		}
+	}
+	sort.Strings(ids)
+	out := make([]ErrorList, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, byID[id])
+	}
+	return out
+}
+
 // RenderConsole renders a human-readable summary for console output.
 func RenderConsole(res Result) string {
 	if len(res.Lists) == 0 {
 		return "No notices."
 	}
 	var b strings.Builder
-	ids := make([]string, 0, len(res.Lists))
-	byID := make(map[string]ErrorList)
-	for _, el := range res.Lists {
-		id := string(el.Rule.ID)
-		if _, ok := byID[id]; !ok {
-			ids = append(ids, id)
-			byID[id] = el
-		} else {
-			merged := byID[id]
-			merged.Occurrences = append(merged.Occurrences, el.Occurrences...)
-			byID[id] = merged
-		}
-	}
-	sort.Strings(ids)
-	for _, id := range ids {
-		el := byID[id]
-		fmt.Fprintf(&b, "%s [%s] x%d - %s\n", id, el.Rule.Severity, len(el.Occurrences), el.Rule.Title)
+	for _, el := range aggregateByRuleID(res.Lists) {
+		fmt.Fprintf(&b, "%s [%s] x%d - %s\n", string(el.Rule.ID), el.Rule.Severity, len(el.Occurrences), el.Rule.Title)
 	}
 	return b.String()
 }
@@ -94,8 +104,9 @@ type ErrorListHelperModel struct {
 
 // ToCompat converts Result to the legacy/compat JSON structure.
 func ToCompat(res Result) []ErrorListHelperModel {
-	out := make([]ErrorListHelperModel, 0, len(res.Lists))
-	for _, el := range res.Lists {
+	aggregated := aggregateByRuleID(res.Lists)
+	out := make([]ErrorListHelperModel, 0, len(aggregated))
+	for _, el := range aggregated {
 		m := ErrorListHelperModel{ErrorMessage: errorMessage{ValidationRule: validationRule{
 			ErrorID:          string(el.Rule.ID),
 			Severity:         string(el.Rule.Severity),
