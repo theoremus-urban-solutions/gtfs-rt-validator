@@ -8,7 +8,7 @@ import (
 )
 
 type VehicleValidator struct {
-	RTOnly bool // When true, skip checks that require static GTFS (W011 bbox)
+	RTOnly bool // When true, skip checks that require static GTFS (E028 bbox)
 }
 
 func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
@@ -34,7 +34,7 @@ func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata,
 				out = append(out, errorListDetailed("W002", "vehicle", eid, "", nil))
 			} else {
 				if _, dup := seen[vid]; dup {
-					out = append(out, errorListDetailed("W014", "vehicle.id "+vid, eid, vid, map[string]string{
+					out = append(out, errorListDetailed("E052", "vehicle.id "+vid, eid, vid, map[string]string{
 						"vehicle_id": vid,
 					}))
 				} else {
@@ -72,11 +72,11 @@ func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata,
 						"longitude":  fmt.Sprintf("%f", lon),
 					}))
 				}
-				// W011: Skip bbox check in RT-only mode (requires static GTFS)
+				// E028: Skip bbox check in RT-only mode (requires static GTFS)
 				if !v.RTOnly && meta != nil {
 					if meta.ShapeBBoxBuffered != nil {
 						if !meta.ShapeBBoxBuffered.Contains(lat, lon) {
-							out = append(out, errorListDetailed("W011", "vehicle.position", eid, "", map[string]string{
+							out = append(out, errorListDetailed("E028", "vehicle.position", eid, "", map[string]string{
 								"vehicle_id": vid,
 								"latitude":   fmt.Sprintf("%f", lat),
 								"longitude":  fmt.Sprintf("%f", lon),
@@ -84,7 +84,7 @@ func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata,
 						}
 					} else {
 						if !meta.StopBBoxBuffered.Contains(lat, lon) {
-							out = append(out, errorListDetailed("W011", "vehicle.position", eid, "", map[string]string{
+							out = append(out, errorListDetailed("E028", "vehicle.position", eid, "", map[string]string{
 								"vehicle_id": vid,
 								"latitude":   fmt.Sprintf("%f", lat),
 								"longitude":  fmt.Sprintf("%f", lon),

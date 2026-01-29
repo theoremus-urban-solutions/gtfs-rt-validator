@@ -8,7 +8,7 @@ import (
 )
 
 type StopTimeUpdateValidator struct {
-	RTOnly bool // When true, skip checks that require static GTFS (W017, W031, W032, W034)
+	RTOnly bool // When true, skip checks that require static GTFS (E009, E045, E046, E051)
 }
 
 func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
@@ -36,6 +36,14 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 			stopSeq := stu.GetStopSequence()
 			stopSeqStr := fmt.Sprintf("%d", stopSeq)
 
+			if stu.ScheduleRelationship == nil {
+				out = append(out, errorListDetailed("W009", "trip_id "+tripID, eid, "", map[string]string{
+					"trip_id":       tripID,
+					"stop_id":       stopID,
+					"stop_sequence": stopSeqStr,
+				}))
+			}
+
 			if stopID == "" && stopSeq == 0 {
 				out = append(out, errorListDetailed("E040", "trip_id "+tripID, eid, "", map[string]string{
 					"trip_id": tripID,
@@ -55,7 +63,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 
 			if stu.GetScheduleRelationship() != rt.TripUpdate_StopTimeUpdate_SKIPPED && stu.GetScheduleRelationship() != rt.TripUpdate_StopTimeUpdate_NO_DATA {
 				if stu.GetArrival() == nil && stu.GetDeparture() == nil {
-					out = append(out, errorListDetailed("W029", "trip_id "+tripID, eid, "", map[string]string{
+					out = append(out, errorListDetailed("E043", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
@@ -65,7 +73,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 
 			if ev := stu.GetArrival(); ev != nil {
 				if ev.GetDelay() == 0 && ev.GetTime() == 0 {
-					out = append(out, errorListDetailed("W030", "trip_id "+tripID, eid, "", map[string]string{
+					out = append(out, errorListDetailed("E044", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
@@ -75,7 +83,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 			}
 			if ev := stu.GetDeparture(); ev != nil {
 				if ev.GetDelay() == 0 && ev.GetTime() == 0 {
-					out = append(out, errorListDetailed("W030", "trip_id "+tripID, eid, "", map[string]string{
+					out = append(out, errorListDetailed("E044", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
@@ -92,7 +100,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 					}))
 				}
 				if stopID != "" && prevStopID != "" && stopID == prevStopID {
-					out = append(out, errorListDetailed("W012", "trip_id "+tripID, eid, stopID, map[string]string{
+					out = append(out, errorListDetailed("E037", "trip_id "+tripID, eid, stopID, map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
@@ -113,7 +121,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 				prevStopID = stopID
 			}
 
-			// W031, W034: Skip in RT-only mode (requires static GTFS stop_times)
+			// E045, E051: Skip in RT-only mode (requires static GTFS stop_times)
 			if !v.RTOnly && meta != nil && stopSeq != 0 && stopID != "" {
 				m := seqMapCache[tripID]
 				if m == nil {
@@ -125,7 +133,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 				}
 				if expectedStopID, ok := m[int(stopSeq)]; ok {
 					if expectedStopID != stopID {
-						out = append(out, errorListDetailed("W031", "trip_id "+tripID, eid, stopID, map[string]string{
+						out = append(out, errorListDetailed("E045", "trip_id "+tripID, eid, stopID, map[string]string{
 							"trip_id":       tripID,
 							"stop_sequence": stopSeqStr,
 							"expected":      expectedStopID,
@@ -133,7 +141,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 						}))
 					}
 				} else {
-					out = append(out, errorListDetailed("W034", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
+					out = append(out, errorListDetailed("E051", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
 						"trip_id":       tripID,
 						"stop_sequence": stopSeqStr,
 					}))
@@ -144,14 +152,14 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 				break
 			}
 
-			// W032: Skip in RT-only mode (requires static GTFS stop_times)
+			// E046: Skip in RT-only mode (requires static GTFS stop_times)
 			if !v.RTOnly && meta != nil {
 				if (stu.GetArrival() == nil || stu.GetArrival().GetTime() == 0) && (stu.GetDeparture() == nil || stu.GetDeparture().GetTime() == 0) {
 					if seq := int(stopSeq); seq > 0 {
 						for _, st := range meta.StopTimesByTripID[tripID] {
 							if st.StopSequence == seq {
 								if st.ArrivalTime == "" && st.DepartureTime == "" {
-									out = append(out, errorListDetailed("W032", "trip_id "+tripID, eid, "", map[string]string{
+									out = append(out, errorListDetailed("E046", "trip_id "+tripID, eid, "", map[string]string{
 										"trip_id":       tripID,
 										"stop_id":       stopID,
 										"stop_sequence": stopSeqStr,
@@ -164,11 +172,11 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 				}
 			}
 
-			// W017: Skip in RT-only mode (requires static GTFS trips with multi-stops)
+			// E009: Skip in RT-only mode (requires static GTFS trips with multi-stops)
 			if !v.RTOnly && meta != nil {
 				if _, hasRepeat := meta.TripsWithMultiStops[tripID]; hasRepeat {
 					if stopSeq == 0 {
-						out = append(out, errorListDetailed("W017", "trip_id "+tripID, eid, "", map[string]string{
+						out = append(out, errorListDetailed("E009", "trip_id "+tripID, eid, "", map[string]string{
 							"trip_id": tripID,
 							"stop_id": stopID,
 						}))
@@ -184,7 +192,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 			}
 			if thisTime != 0 {
 				if prevArr != 0 && thisTime <= prevArr {
-					out = append(out, errorListDetailed("W010", "trip_id "+tripID, eid, fmt.Sprintf("%d", thisTime), map[string]string{
+					out = append(out, errorListDetailed("E022", "trip_id "+tripID, eid, fmt.Sprintf("%d", thisTime), map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
@@ -208,7 +216,7 @@ func (v StopTimeUpdateValidator) Validate(ctx context.Context, _ int64, meta *Me
 		}
 
 		if len(tu.GetStopTimeUpdate()) == 0 && tu.GetTrip().GetScheduleRelationship() != rt.TripDescriptor_CANCELED {
-			out = append(out, errorListDetailed("W013", "trip_id "+tripID, eid, "", map[string]string{
+			out = append(out, errorListDetailed("E041", "trip_id "+tripID, eid, "", map[string]string{
 				"trip_id": tripID,
 			}))
 		}

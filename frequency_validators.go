@@ -38,7 +38,7 @@ func (FreqZeroValidator) Validate(ctx context.Context, _ int64, meta *Metadata, 
 					}))
 				}
 				if tu.GetTrip().GetScheduleRelationship() != rt.TripDescriptor_UNSCHEDULED {
-					out = append(out, errorListDetailed("W019", "trip_id "+tid, eid, tu.GetTrip().GetScheduleRelationship().String(), map[string]string{
+					out = append(out, errorListDetailed("E013", "trip_id "+tid, eid, tu.GetTrip().GetScheduleRelationship().String(), map[string]string{
 						"trip_id":               tid,
 						"schedule_relationship": tu.GetTrip().GetScheduleRelationship().String(),
 						"expected":              "UNSCHEDULED",

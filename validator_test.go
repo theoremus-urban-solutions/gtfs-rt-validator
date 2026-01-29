@@ -126,24 +126,24 @@ func TestRTOnlyValidation_DuplicateVehicleID(t *testing.T) {
 	}
 
 	valid, result := v.ValidateIteration(ctx, feed, nil)
-	// W014 is a warning, so the feed should be valid (no errors)
-	if !valid {
-		t.Error("Expected valid feed (W014 is a warning)")
+	// E052 is an error, so the feed should be invalid
+	if valid {
+		t.Error("Expected invalid feed (E052 is an error)")
 	}
 
-	// Should have W014 warning for duplicate vehicle ID
+	// Should have E052 error for duplicate vehicle ID
 	found := false
 	for _, el := range result.Lists {
-		if el.Rule.ID == "W014" {
+		if el.Rule.ID == "E052" {
 			found = true
-			if el.Rule.Severity != Warning {
-				t.Errorf("W014 should have Warning severity, got %s", el.Rule.Severity)
+			if el.Rule.Severity != Error {
+				t.Errorf("E052 should have Error severity, got %s", el.Rule.Severity)
 			}
 			break
 		}
 	}
 	if !found {
-		t.Error("Expected W014 warning for duplicate vehicle ID")
+		t.Error("Expected E052 error for duplicate vehicle ID")
 	}
 }
 
@@ -185,24 +185,24 @@ func TestRTOnlyValidation_SequentialTimesNotIncreasing(t *testing.T) {
 	}
 
 	valid, result := v.ValidateIteration(ctx, feed, nil)
-	// W010 is a warning, so the feed should be valid (no errors)
-	if !valid {
-		t.Error("Expected valid feed (W010 is a warning)")
+	// E022 is an error, so the feed should be invalid
+	if valid {
+		t.Error("Expected invalid feed (E022 is an error)")
 	}
 
-	// Should have W010 warning for non-increasing times
+	// Should have E022 error for non-increasing times
 	found := false
 	for _, el := range result.Lists {
-		if el.Rule.ID == "W010" {
+		if el.Rule.ID == "E022" {
 			found = true
-			if el.Rule.Severity != Warning {
-				t.Errorf("W010 should have Warning severity, got %s", el.Rule.Severity)
+			if el.Rule.Severity != Error {
+				t.Errorf("E022 should have Error severity, got %s", el.Rule.Severity)
 			}
 			break
 		}
 	}
 	if !found {
-		t.Error("Expected W010 warning for non-increasing times")
+		t.Error("Expected E022 error for non-increasing times")
 	}
 }
 
@@ -237,13 +237,13 @@ func TestRTOnlyValidation_SkipsStaticChecks(t *testing.T) {
 
 	valid, result := v.ValidateIteration(ctx, feed, nil)
 
-	// Should NOT have W015 or W018 warnings in RT-only mode (these require static GTFS)
+	// Should NOT have E003 or E011 errors in RT-only mode (these require static GTFS)
 	for _, el := range result.Lists {
-		if el.Rule.ID == "W015" {
-			t.Error("RT-only mode should not check W015 (trip_id not in GTFS)")
+		if el.Rule.ID == "E003" {
+			t.Error("RT-only mode should not check E003 (trip_id not in GTFS)")
 		}
-		if el.Rule.ID == "W018" {
-			t.Error("RT-only mode should not check W018 (stop_id not in GTFS)")
+		if el.Rule.ID == "E011" {
+			t.Error("RT-only mode should not check E011 (stop_id not in GTFS)")
 		}
 	}
 
@@ -278,15 +278,15 @@ func TestVehicleValidator_RTOnlySkipsBBox(t *testing.T) {
 	resultsRT := vRT.Validate(ctx, now, nil, feed, nil, nil)
 	resultsFull := vFull.Validate(ctx, now, nil, feed, nil, nil)
 
-	// Neither should have W011 with nil metadata
+	// Neither should have E028 with nil metadata
 	for _, el := range resultsRT {
-		if el.Rule.ID == "W011" {
-			t.Error("RT-only should never produce W011")
+		if el.Rule.ID == "E028" {
+			t.Error("RT-only should never produce E028")
 		}
 	}
 	for _, el := range resultsFull {
-		if el.Rule.ID == "W011" {
-			t.Error("Full mode with nil metadata should not produce W011")
+		if el.Rule.ID == "E028" {
+			t.Error("Full mode with nil metadata should not produce E028")
 		}
 	}
 }

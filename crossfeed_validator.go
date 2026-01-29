@@ -75,7 +75,7 @@ func (CrossFeedValidator) Validate(ctx context.Context, _ int64, _ *Metadata, fe
 
 	for tid, vid := range tuTripToVeh {
 		if v2, ok := vpTripToVeh[tid]; ok && v2 != vid {
-			out = append(out, errorListDetailed("W033", "trip_id "+tid, tuTripToEntity[tid], "", map[string]string{
+			out = append(out, errorListDetailed("E047", "trip_id "+tid, tuTripToEntity[tid], "", map[string]string{
 				"trip_id":               tid,
 				"trip_update_vehicle":   vid,
 				"vehicle_position_vehicle": v2,

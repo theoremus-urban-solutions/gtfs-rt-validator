@@ -19,14 +19,14 @@ func (StopValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed
 				sid := stu.GetStopId()
 				if sid != "" {
 					if _, ok := meta.StopIDs[sid]; !ok {
-						out = append(out, errorListDetailed("W018", "stop_id "+sid, eid, sid, map[string]string{
+						out = append(out, errorListDetailed("E011", "stop_id "+sid, eid, sid, map[string]string{
 							"stop_id":       sid,
 							"trip_id":       tripID,
 							"stop_sequence": fmt.Sprintf("%d", stu.GetStopSequence()),
 						}))
 					}
 					if lt, ok := meta.StopToLocationType[sid]; ok && lt != 0 {
-						out = append(out, errorListDetailed("W020", "stop_id "+sid, eid, sid, map[string]string{
+						out = append(out, errorListDetailed("E015", "stop_id "+sid, eid, sid, map[string]string{
 							"stop_id":       sid,
 							"trip_id":       tripID,
 							"location_type": fmt.Sprintf("%d", lt),
@@ -43,13 +43,13 @@ func (StopValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed
 			}
 			if sid != "" {
 				if _, ok := meta.StopIDs[sid]; !ok {
-					out = append(out, errorListDetailed("W018", "stop_id "+sid, eid, sid, map[string]string{
+					out = append(out, errorListDetailed("E011", "stop_id "+sid, eid, sid, map[string]string{
 						"stop_id":    sid,
 						"vehicle_id": vid,
 					}))
 				}
 				if lt, ok := meta.StopToLocationType[sid]; ok && lt != 0 {
-					out = append(out, errorListDetailed("W020", "stop_id "+sid, eid, sid, map[string]string{
+					out = append(out, errorListDetailed("E015", "stop_id "+sid, eid, sid, map[string]string{
 						"stop_id":       sid,
 						"vehicle_id":    vid,
 						"location_type": fmt.Sprintf("%d", lt),

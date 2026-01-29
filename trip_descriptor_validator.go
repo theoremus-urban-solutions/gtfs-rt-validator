@@ -24,6 +24,11 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 			td := tu.GetTrip()
 			tripID := td.GetTripId()
 			routeID := td.GetRouteId()
+			if td != nil && td.ScheduleRelationship == nil {
+				out = append(out, errorListDetailed("W009", "trip_update.trip", eid, "", map[string]string{
+					"trip_id": tripID,
+				}))
+			}
 			if tripID == "" {
 				out = append(out, errorListDetailed("W006", "trip_update.trip missing trip_id", eid, "", map[string]string{
 					"route_id": routeID,
@@ -32,13 +37,13 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				trip, ok := meta.TripsByTripID[tripID]
 				if !ok {
 					if td.GetScheduleRelationship() != rt.TripDescriptor_ADDED {
-						out = append(out, errorListDetailed("W015", "trip_id "+tripID, eid, tripID, map[string]string{
+						out = append(out, errorListDetailed("E003", "trip_id "+tripID, eid, tripID, map[string]string{
 							"trip_id": tripID,
 						}))
 					}
 				} else {
 					if td.GetScheduleRelationship() == rt.TripDescriptor_ADDED {
-						out = append(out, errorListDetailed("W021", "trip_id "+tripID, eid, tripID, map[string]string{
+						out = append(out, errorListDetailed("E016", "trip_id "+tripID, eid, tripID, map[string]string{
 							"trip_id":               tripID,
 							"schedule_relationship": "ADDED",
 						}))
@@ -46,7 +51,7 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 					if td.GetStartTime() != "" {
 						if sts := meta.StopTimesByTripID[tripID]; len(sts) > 0 {
 							if sts[0].ArrivalTime != "" && td.GetStartTime() != sts[0].ArrivalTime {
-								out = append(out, errorListDetailed("W022", "trip_id "+tripID, eid, td.GetStartTime(), map[string]string{
+								out = append(out, errorListDetailed("E023", "trip_id "+tripID, eid, td.GetStartTime(), map[string]string{
 									"trip_id":  tripID,
 									"expected": sts[0].ArrivalTime,
 									"actual":   td.GetStartTime(),
@@ -56,7 +61,7 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 					}
 					if td.DirectionId != nil && trip.DirectionID != nil {
 						if td.GetDirectionId() != uint32(*trip.DirectionID) {
-							out = append(out, errorListDetailed("W023", "trip_id "+tripID, eid, fmt.Sprintf("%d", td.GetDirectionId()), map[string]string{
+							out = append(out, errorListDetailed("E024", "trip_id "+tripID, eid, fmt.Sprintf("%d", td.GetDirectionId()), map[string]string{
 								"trip_id":  tripID,
 								"expected": fmt.Sprintf("%d", *trip.DirectionID),
 								"actual":   fmt.Sprintf("%d", td.GetDirectionId()),
@@ -66,7 +71,7 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				}
 				if routeID != "" {
 					if _, ok := meta.RouteIDs[routeID]; !ok {
-						out = append(out, errorListDetailed("W016", "route_id "+routeID, eid, routeID, map[string]string{
+						out = append(out, errorListDetailed("E004", "route_id "+routeID, eid, routeID, map[string]string{
 							"trip_id":  tripID,
 							"route_id": routeID,
 						}))
@@ -99,7 +104,7 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 				}
 				if aid := ie.GetAgencyId(); aid != "" {
 					if _, ok := meta.AgencyIDs[aid]; !ok {
-						out = append(out, errorListDetailed("W027", "agency_id "+aid, eid, aid, map[string]string{
+						out = append(out, errorListDetailed("E034", "agency_id "+aid, eid, aid, map[string]string{
 							"agency_id": aid,
 						}))
 					}
@@ -108,7 +113,7 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 					tid := ie.GetTrip().GetTripId()
 					if trip, ok := meta.TripsByTripID[tid]; ok {
 						if ie.GetRouteId() != "" && trip.RouteID != ie.GetRouteId() {
-							out = append(out, errorListDetailed("W026", "trip_id "+tid, eid, ie.GetRouteId(), map[string]string{
+							out = append(out, errorListDetailed("E031", "trip_id "+tid, eid, ie.GetRouteId(), map[string]string{
 								"trip_id":                  tid,
 								"informed_entity_route_id": ie.GetRouteId(),
 								"trip_route_id":            trip.RouteID,
@@ -116,14 +121,14 @@ func (TripDescriptorValidator) Validate(ctx context.Context, _ int64, meta *Meta
 						}
 						if td := ie.GetTrip(); td != nil {
 							if td.GetRouteId() != "" && td.GetRouteId() != trip.RouteID {
-								out = append(out, errorListDetailed("W028", "trip_id "+tid, eid, td.GetRouteId(), map[string]string{
+								out = append(out, errorListDetailed("E035", "trip_id "+tid, eid, td.GetRouteId(), map[string]string{
 									"trip_id":                tid,
 									"trip_descriptor_route":  td.GetRouteId(),
 									"expected_trip_route_id": trip.RouteID,
 								}))
 							}
 							if ie.GetRouteId() != "" && td.GetRouteId() != "" && td.GetRouteId() != ie.GetRouteId() {
-								out = append(out, errorListDetailed("W025", "trip_id "+tid, eid, "", map[string]string{
+								out = append(out, errorListDetailed("E030", "trip_id "+tid, eid, "", map[string]string{
 									"trip_id":                  tid,
 									"trip_descriptor_route":    td.GetRouteId(),
 									"informed_entity_route_id": ie.GetRouteId(),
