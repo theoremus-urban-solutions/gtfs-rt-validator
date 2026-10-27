@@ -46,12 +46,12 @@ func (TripDescriptorValidator) Validate(c *Check) {
 							"schedule_relationship": "ADDED",
 						})
 					}
-					if td.GetStartTime() != "" && trip.NumStops() > 0 {
-						if trip.FirstArrivalText != "" && td.GetStartTime() != trip.FirstArrivalText {
-							c.add("E023", "trip_id "+tripID, eid, td.GetStartTime(), map[string]string{
+					if s := td.GetStartTime(); s != "" && trip.FirstArrival >= 0 {
+						if t, ok := parseClock(s); !ok || t != trip.FirstArrival {
+							c.add("E023", "trip_id "+tripID, eid, s, map[string]string{
 								"trip_id":  tripID,
-								"expected": trip.FirstArrivalText,
-								"actual":   td.GetStartTime(),
+								"expected": formatClock(trip.FirstArrival),
+								"actual":   s,
 							})
 						}
 					}

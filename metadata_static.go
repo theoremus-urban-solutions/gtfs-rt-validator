@@ -8,12 +8,14 @@ func (md *Metadata) Trip(tripID, _ string) (TripInfo, Presence) {
 	if !ok {
 		return TripInfo{}, Absent
 	}
-	info := TripInfo{RouteID: trip.RouteID, DirectionID: -1, md: md.StopTimesByTripID[tripID]}
+	info := TripInfo{RouteID: trip.RouteID, DirectionID: -1, FirstArrival: -1, md: md.StopTimesByTripID[tripID]}
 	if trip.DirectionID != nil {
 		info.DirectionID = *trip.DirectionID
 	}
 	if len(info.md) > 0 {
-		info.FirstArrivalText = info.md[0].ArrivalTime
+		if t, ok := parseClock(info.md[0].ArrivalTime); ok {
+			info.FirstArrival = t
+		}
 	}
 	if _, ok := md.ExactTimesZeroTripIDs[tripID]; ok {
 		info.Frequency = FrequencyInexact

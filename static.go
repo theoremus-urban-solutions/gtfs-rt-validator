@@ -1,5 +1,7 @@
 package validator
 
+import "strconv"
+
 // Presence says whether the static release knows an id.
 type Presence uint8
 
@@ -38,9 +40,9 @@ type TripInfo struct {
 	RouteID string
 	// DirectionID is -1 when trips.txt leaves it blank.
 	DirectionID int
-	// FirstArrivalText is the arrival_time of the lowest stop_sequence as written in stop_times.txt.
-	FirstArrivalText string
-	Frequency        FrequencyKind
+	// FirstArrival is the lowest stop_sequence's arrival_time in seconds after midnight, or -1 when blank.
+	FirstArrival int32
+	Frequency    FrequencyKind
 	// RepeatsStop is true when the trip visits one stop more than once.
 	RepeatsStop bool
 
@@ -69,4 +71,37 @@ func (t TripInfo) StopAt(i int) ScheduledStop {
 		ArrivalSet:   st.ArrivalTime != "",
 		DepartureSet: st.DepartureTime != "",
 	}
+}
+
+// parseClock reads a GTFS H:MM:SS or HH:MM:SS time as seconds after midnight.
+func parseClock(s string) (int32, bool) {
+	var parts [3]int32
+	n, digits := 0, 0
+	for i := 0; i < len(s); i++ {
+		switch ch := s[i]; {
+		case ch >= '0' && ch <= '9':
+			if digits++; digits > 3 || (n > 0 && digits > 2) {
+				return 0, false
+			}
+			parts[n] = parts[n]*10 + int32(ch-'0')
+		case ch == ':' && digits > 0 && n < 2 && (n == 0 || digits == 2):
+			n, digits = n+1, 0
+		default:
+			return 0, false
+		}
+	}
+	if n != 2 || digits != 2 || parts[1] > 59 || parts[2] > 59 {
+		return 0, false
+	}
+	return parts[0]*3600 + parts[1]*60 + parts[2], true
+}
+
+// formatClock writes seconds after midnight as HH:MM:SS.
+func formatClock(sec int32) string {
+	h, m, s := sec/3600, sec/60%60, sec%60
+	b := []byte{byte('0' + h/10%10), byte('0' + h%10), ':', byte('0' + m/10), byte('0' + m%10), ':', byte('0' + s/10), byte('0' + s%10)}
+	if h >= 100 {
+		return strconv.Itoa(int(h)) + string(b[2:])
+	}
+	return string(b)
 }

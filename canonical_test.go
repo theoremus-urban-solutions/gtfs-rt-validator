@@ -143,7 +143,7 @@ func canonicalCases() []canonicalCase {
 		{name: "7 blank exact_times trip starting 06:10:00", feed: fxFeed(fxTU("T_FREQ_BLANK", "06:10:00", rt.TripDescriptor_UNSCHEDULED.Enum(), fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch))),
 			want: map[RuleID]int{"E023": 1}},
 		{name: "8 GTFS first arrival 5:30:00 and start_time 05:30:00", feed: fxFeed(fxTU("T_SHORT", "05:30:00", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch))),
-			want: map[RuleID]int{"E023": 1}},
+			want: map[RuleID]int{}},
 		{name: "9 unknown SCHEDULED trip", feed: fxFeed(fxTU("T_GONE", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(2), "S2", fxAt(fxT0+60), nil, sch))),
 			want: map[RuleID]int{"E003": 1}},
 		{name: "10 unknown ADDED trip", feed: fxFeed(fxTU("T_NEW", "", rt.TripDescriptor_ADDED.Enum(), fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch))),
@@ -319,6 +319,23 @@ func TestCanonicalCleanTripAfterByteOrderMark(t *testing.T) {
 		res := ValidateFeed(context.Background(), static, feed, nil, Options{Now: time.Unix(int64(fxNow), 0)})
 		if got := countsString(res.Counts); got != "nothing" {
 			t.Errorf("%s: got %s, want nothing", name, got)
+		}
+	}
+}
+
+func TestParseClock(t *testing.T) {
+	for in, want := range map[string]int32{"5:30:00": 19800, "05:30:00": 19800, "25:01:02": 90062, "100:00:00": 360000, "": -1, "5:3:00": -1, "05:60:00": -1, "05:30": -1, "x5:30:00": -1, "05:30:00 ": -1} {
+		got, ok := parseClock(in)
+		if !ok {
+			got = -1
+		}
+		if got != want {
+			t.Errorf("parseClock(%q) = %d, want %d", in, got, want)
+		}
+	}
+	for in, want := range map[int32]string{19800: "05:30:00", 90062: "25:01:02", 0: "00:00:00", 360000: "100:00:00"} {
+		if got := formatClock(in); got != want {
+			t.Errorf("formatClock(%d) = %q, want %q", in, got, want)
 		}
 	}
 }
