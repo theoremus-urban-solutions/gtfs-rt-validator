@@ -161,7 +161,7 @@ func canonicalCases() []canonicalCase {
 		{name: "16 alert whose second selector is empty", feed: fxFeed(fxAlert(&rt.EntitySelector{RouteId: proto.String("R1")}, &rt.EntitySelector{})),
 			want: map[RuleID]int{"E033": 1}},
 		{name: "17 vehicle with no position", feed: fxFeed(fxVP("v", "T1", fxNow, nil)),
-			want: map[RuleID]int{"E026": 1}},
+			want: map[RuleID]int{}},
 		// Canonical gives E003 and E004; trip checks on VehiclePositions are deferred.
 		{name: "18 vehicle on unknown trip and route", feed: fxFeed(fxVP("v", "T_GONE", fxNow, pos)),
 			want: map[RuleID]int{}},
@@ -193,6 +193,8 @@ func canonicalCases() []canonicalCase {
 			want: map[RuleID]int{"E002": 1}},
 		{name: "33 update with neither stop_sequence nor stop_id", feed: fxFeed(fxTU("T1", "", S, fxSTU(nil, "", fxAt(fxT0), nil, sch))),
 			want: map[RuleID]int{"E040": 1}},
+		{name: "34 vehicle at latitude 91", feed: fxFeed(fxVP("v", "T1", fxNow, &rt.Position{Latitude: proto.Float32(91), Longitude: proto.Float32(23.31)})),
+			want: map[RuleID]int{"E026": 1}},
 		{name: "28 untimed GTFS stop sent with arrival and departure delays only", feed: fxFeed(fxTU("T_UNTIMED", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch),
 			fxSTU(seqp(2), "S2", &rt.TripUpdate_StopTimeEvent{Delay: proto.Int32(60)}, &rt.TripUpdate_StopTimeEvent{Delay: proto.Int32(60)}, sch))),
 			want: map[RuleID]int{"E046": 2}},

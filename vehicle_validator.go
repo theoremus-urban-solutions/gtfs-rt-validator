@@ -43,19 +43,14 @@ func (v VehicleValidator) Validate(c *Check) {
 			}
 
 			pos := vp.GetPosition()
-			if pos == nil || !IsPositionValid(float64(pos.GetLatitude()), float64(pos.GetLongitude())) {
-				var details map[string]string
-				if pos != nil {
-					details = map[string]string{
-						"vehicle_id": vid,
-						"latitude":   fmt.Sprintf("%f", pos.GetLatitude()),
-						"longitude":  fmt.Sprintf("%f", pos.GetLongitude()),
-					}
-				} else {
-					details = map[string]string{"vehicle_id": vid}
-				}
-				c.add("E026", "vehicle.position", eid, "", details)
-			} else {
+			// position is optional, so E026 judges only a position that was sent.
+			if pos != nil && !IsPositionValid(float64(pos.GetLatitude()), float64(pos.GetLongitude())) {
+				c.add("E026", "vehicle.position", eid, "", map[string]string{
+					"vehicle_id": vid,
+					"latitude":   fmt.Sprintf("%f", pos.GetLatitude()),
+					"longitude":  fmt.Sprintf("%f", pos.GetLongitude()),
+				})
+			} else if pos != nil {
 				lat := float64(pos.GetLatitude())
 				lon := float64(pos.GetLongitude())
 				if !IsBearingValid(true, pos.GetBearing()) {
