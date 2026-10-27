@@ -35,25 +35,29 @@ This is a GTFS-Realtime validator written in Go. It validates real-time transit 
 
 ### Validation Flow
 
-1. **Metadata Loading** (`parser.go`): Parses static GTFS files (trips.txt, stops.txt, etc.) into a `Metadata` struct that caches IDs, stop times, frequencies, and bounding boxes
-2. **Validator Registry** (`validator_registry.go`): `DefaultValidators()` returns all active validators
-3. **Validation Execution** (`validators.go`): `ValidateIteration()` runs each validator and collects `ErrorList` results
-4. **Output** (`report.go`): Results rendered as console, JSON, summary, or Java-compatible JSON format
+1. **Static loading**: `LoadStaticIndex` / `LoadStaticIndexPath` (`static_index.go`) build the compact `*StaticIndex` the constructors use; `LoadMetadata` (`parser.go`) builds the older map-based `*Metadata`. Both implement `Static` (`static.go`) and both loads are strict: a missing required file or column, or a CSV error, fails the load.
+2. **Validator Registry** (`validator_registry.go`): `DefaultValidators()` returns all active validators.
+3. **Validation Execution** (`check.go`): `ValidateFeed(ctx, static, feed, prev, opts)` is stateless and safe for concurrent feeds; the caller keeps one `PrevHeader` per feed. `Validator.ValidateIteration` (`validators.go`) wraps it for the CLI and remembers its own `PrevHeader`.
+4. **Output** (`report.go`): Results rendered as console, JSON, summary, or Java-compatible JSON format.
 
 ### Validator Interface
 
 All validators implement `FeedEntityValidator`:
 ```go
 type FeedEntityValidator interface {
-    Validate(ctx context.Context, now int64, meta *Metadata, feed, prev, combined *rt.FeedMessage) []ErrorList
+    Validate(c *Check)
 }
 ```
 
-- `now`: Current timestamp in milliseconds
-- `meta`: Parsed static GTFS data
-- `feed`: Current GTFS-RT feed being validated
-- `prev`: Previous feed iteration (for sequential checks like E017, E018)
-- `combined`: Merged feed when validating multiple sources (for cross-feed checks like E047)
+`Check` (`check.go`) carries `Ctx`, `NowMs` (Unix milliseconds), `Static` (nil when only GTFS-RT rules run), `Feed`, `Prev` (the previous header of this same feed, for E017 and E018) and `Combined` (the merged feed for cross-feed rules such as E047). A rule reports with `c.add(rule, prefix, entityID, value, details)`.
+
+`Static` answers `Trip`, `Stop`, `Route` and `Agency` with a `Presence`: `Present`, `Absent`, or `NotCovered` when the release cannot judge that id, in which case the rule skips its static check.
+
+### Behaviour matched against MobilityData's validator
+
+- `canonical_test.go` holds one case per reviewed verdict, each with MobilityData's result, and runs every case on both `*Metadata` and `*StaticIndex`.
+- Test whether a proto field is set (`StopSequence != nil`, `Delay == nil`, `Incrementality == nil`), never its getter, which returns zero for an unset field.
+- `static_index_test.go` checks `*StaticIndex` against `*Metadata` trip by trip; with `GTFS_RT_SOFIA_ZIP` set to a real release it also runs the Sofia parity, load budget and benchmarks.
 
 ### Rule Definitions
 
