@@ -166,7 +166,7 @@ func canonicalCases() []canonicalCase {
 		{name: "18 vehicle on unknown trip and route", feed: fxFeed(fxVP("v", "T_GONE", fxNow, pos)),
 			want: map[RuleID]int{}},
 		{name: "19 version 2.0 header with no incrementality", feed: &rt.FeedMessage{Header: &rt.FeedHeader{GtfsRealtimeVersion: proto.String("2.0"), Timestamp: proto.Uint64(fxNow)}},
-			want: map[RuleID]int{}},
+			want: map[RuleID]int{"E049": 1}},
 		{name: "20 arrival time sent as 0", feed: fxFeed(fxTU("T1", "", S, fxSTU(seqp(1), "S1", fxAt(0), nil, sch))),
 			want: map[RuleID]int{}},
 		{name: "21 VehiclePositions with its own previous header after a TripUpdates build in the same second", feed: &rt.FeedMessage{Header: fxHeader(fxNow), Entity: []*rt.FeedEntity{fxVP("v", "T1", fxNow, pos), fxVP("v2", "T1", fxNow, pos)}},

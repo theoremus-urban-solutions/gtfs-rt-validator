@@ -15,7 +15,7 @@ func (HeaderValidator) Validate(c *Check) {
 			"gtfs_realtime_version": version,
 		})
 	}
-	if IsV2OrHigher(h) && h.GetIncrementality().String() == "" {
+	if IsV2OrHigher(h) && h.Incrementality == nil {
 		c.add("E049", "header", "", "", map[string]string{
 			"gtfs_realtime_version": version,
 		})
