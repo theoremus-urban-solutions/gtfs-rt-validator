@@ -59,6 +59,12 @@ func buildMetadataFromReaders(readers map[string]*csv.Reader, ignoreShapes bool)
 		TripsWithMultiStops:   make(map[string][]string),
 	}
 
+	for _, name := range requiredFiles {
+		if readers[name] == nil {
+			return nil, fmt.Errorf("%s is missing", name)
+		}
+	}
+
 	if r := readers["agency.txt"]; r != nil {
 		if err := parseAgency(r, md); err != nil {
 			return nil, err
@@ -97,6 +103,18 @@ func buildMetadataFromReaders(readers map[string]*csv.Reader, ignoreShapes bool)
 		}
 	}
 
+	for name, n := range map[string]int{
+		"agency.txt":     len(md.AgencyIDs),
+		"routes.txt":     len(md.RouteIDs),
+		"trips.txt":      len(md.TripsByTripID),
+		"stops.txt":      len(md.StopIDs),
+		"stop_times.txt": len(md.StopTimesByTripID),
+	} {
+		if n == 0 {
+			return nil, fmt.Errorf("%s has no rows", name)
+		}
+	}
+
 	regionBufDeg := KM_TO_DEG * (REGION_BUFFER_METERS / 1000.0)
 	stopBuf := md.StopBBox.Buffered(regionBufDeg)
 	md.StopBBoxBuffered = stopBuf
@@ -131,18 +149,18 @@ func buildMetadataFromReaders(readers map[string]*csv.Reader, ignoreShapes bool)
 }
 
 func parseAgency(r *csv.Reader, md *Metadata) error {
-	headers, err := r.Read()
+	const name = "agency.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(headers)
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		id := get(rec, idx, "agency_id")
 		if id == "" {
@@ -154,18 +172,18 @@ func parseAgency(r *csv.Reader, md *Metadata) error {
 }
 
 func parseRoutes(r *csv.Reader, md *Metadata) error {
-	h, err := r.Read()
+	const name = "routes.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(h)
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		id := get(rec, idx, "route_id")
 		if id != "" {
@@ -176,18 +194,18 @@ func parseRoutes(r *csv.Reader, md *Metadata) error {
 }
 
 func parseTrips(r *csv.Reader, md *Metadata) error {
-	h, err := r.Read()
+	const name = "trips.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(h)
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		t := Trip{
 			TripID:    get(rec, idx, "trip_id"),
@@ -209,11 +227,11 @@ func parseTrips(r *csv.Reader, md *Metadata) error {
 }
 
 func parseStops(r *csv.Reader, md *Metadata) error {
-	h, err := r.Read()
+	const name = "stops.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(h)
 	first := true
 	for {
 		rec, err := r.Read()
@@ -221,7 +239,7 @@ func parseStops(r *csv.Reader, md *Metadata) error {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		id := get(rec, idx, "stop_id")
 		if id == "" {
@@ -245,11 +263,11 @@ func parseStops(r *csv.Reader, md *Metadata) error {
 }
 
 func parseStopTimes(r *csv.Reader, md *Metadata) error {
-	h, err := r.Read()
+	const name = "stop_times.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(h)
 	byTrip := make(map[string][]StopTime)
 	for {
 		rec, err := r.Read()
@@ -257,7 +275,7 @@ func parseStopTimes(r *csv.Reader, md *Metadata) error {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		st := StopTime{
 			TripID:        get(rec, idx, "trip_id"),
@@ -281,18 +299,18 @@ func parseStopTimes(r *csv.Reader, md *Metadata) error {
 }
 
 func parseFrequencies(r *csv.Reader, md *Metadata) error {
-	h, err := r.Read()
+	const name = "frequencies.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(h)
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		f := Frequency{
 			TripID:    get(rec, idx, "trip_id"),
@@ -322,11 +340,11 @@ func parseFrequencies(r *csv.Reader, md *Metadata) error {
 }
 
 func parseShapes(r *csv.Reader, md *Metadata) error {
-	h, err := r.Read()
+	const name = "shapes.txt"
+	idx, err := readHeader(name, r)
 	if err != nil {
 		return err
 	}
-	idx := index(h)
 	var first bool = true
 	var sb Rect
 	for {
@@ -335,7 +353,7 @@ func parseShapes(r *csv.Reader, md *Metadata) error {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", name, err)
 		}
 		sp := ShapePoint{
 			ShapeID: get(rec, idx, "shape_id"),
@@ -362,10 +380,42 @@ func parseShapes(r *csv.Reader, md *Metadata) error {
 	return nil
 }
 
+// requiredFiles must be in every release and hold at least one row.
+var requiredFiles = []string{"agency.txt", "routes.txt", "trips.txt", "stops.txt", "stop_times.txt"}
+
+// requiredColumns are the columns a file must name for the rules to read it.
+var requiredColumns = map[string][]string{
+	"agency.txt":      {"agency_name"},
+	"routes.txt":      {"route_id"},
+	"trips.txt":       {"route_id", "trip_id"},
+	"stops.txt":       {"stop_id", "stop_lat", "stop_lon"},
+	"stop_times.txt":  {"trip_id", "stop_id", "stop_sequence"},
+	"frequencies.txt": {"trip_id", "start_time", "end_time", "headway_secs"},
+	"shapes.txt":      {"shape_id", "shape_pt_lat", "shape_pt_lon"},
+}
+
+// readHeader reads the header row and fails when a required column is missing.
+func readHeader(name string, r *csv.Reader) (map[string]int, error) {
+	h, err := r.Read()
+	if err == io.EOF {
+		return nil, fmt.Errorf("%s has no rows", name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	idx := index(h)
+	for _, col := range requiredColumns[name] {
+		if _, ok := idx[col]; !ok {
+			return nil, fmt.Errorf("%s has no %s column", name, col)
+		}
+	}
+	return idx, nil
+}
+
 func index(headers []string) map[string]int {
 	m := make(map[string]int)
 	for i, h := range headers {
-		m[strings.ToLower(strings.TrimSpace(h))] = i
+		m[strings.ToLower(strings.TrimSpace(strings.TrimPrefix(h, "\ufeff")))] = i
 	}
 	return m
 }

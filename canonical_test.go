@@ -254,3 +254,64 @@ func TestValidateFeedConcurrentFeedsShareNothing(t *testing.T) {
 		t.Errorf("clean build failed: %s", e)
 	}
 }
+
+// loaders loads a zip through every Static implementation and returns each error.
+func loaders(zipData []byte) map[string]error {
+	_, mdErr := LoadMetadataFromBytes(zipData, false)
+	return map[string]error{"metadata": mdErr}
+}
+
+func withFile(name, body string) map[string]string {
+	f := make(map[string]string, len(fixtureFiles))
+	for k, v := range fixtureFiles {
+		f[k] = v
+	}
+	if body == "" {
+		delete(f, name)
+	} else {
+		f[name] = body
+	}
+	return f
+}
+
+func TestStrictLoad(t *testing.T) {
+	stops := fixtureFiles["stops.txt"]
+	cases := []struct {
+		name    string
+		files   map[string]string
+		wantErr string
+	}{
+		{"stops.txt with a byte order mark", withFile("stops.txt", "\ufeff"+stops), ""},
+		{"stops.txt missing", withFile("stops.txt", ""), "stops.txt is missing"},
+		{"trips.txt missing", withFile("trips.txt", ""), "trips.txt is missing"},
+		{"stops.txt header only", withFile("stops.txt", "stop_id,stop_name,stop_lat,stop_lon\n"), "stops.txt has no rows"},
+		{"stop_times.txt without stop_sequence", withFile("stop_times.txt", "trip_id,arrival_time,departure_time,stop_id\nT1,06:00:00,06:00:00,S1\n"), "stop_times.txt has no stop_sequence column"},
+		{"stops.txt with an unclosed quote", withFile("stops.txt", strings.Replace(stops, "S2,b,", "S2,\"b,", 1)), "stops.txt"},
+	}
+	for _, tc := range cases {
+		for name, err := range loaders(zipOf(t, tc.files)) {
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Errorf("%s / %s: unexpected error %v", name, tc.name, err)
+			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+				t.Errorf("%s / %s: got error %v, want one containing %q", name, tc.name, err, tc.wantErr)
+			}
+		}
+	}
+	md, err := LoadMetadataFromBytes(zipOf(t, withFile("stops.txt", "\ufeff"+stops)), false)
+	if err != nil || len(md.StopIDs) != 5 {
+		t.Errorf("byte order mark: got %d stops and error %v, want 5 stops", len(md.StopIDs), err)
+	}
+}
+
+func TestCanonicalCleanTripAfterByteOrderMark(t *testing.T) {
+	zipData := zipOf(t, withFile("stops.txt", "\ufeff"+fixtureFiles["stops.txt"]))
+	sch := rt.TripUpdate_StopTimeUpdate_SCHEDULED
+	feed := fxFeed(fxTU("T1", "", rt.TripDescriptor_SCHEDULED.Enum(), fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(2), "S2", fxAt(fxT0+300), nil, sch)))
+	for name, static := range backends(t, zipData) {
+		res := ValidateFeed(context.Background(), static, feed, nil, Options{Now: time.Unix(int64(fxNow), 0)})
+		if got := countsString(res.Counts); got != "nothing" {
+			t.Errorf("%s: got %s, want nothing", name, got)
+		}
+	}
+}

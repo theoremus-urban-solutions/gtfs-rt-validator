@@ -40,7 +40,6 @@ func ZipOrDirReaders(path string) (map[string]*csv.Reader, func() error, error) 
 				}
 				r := csv.NewReader(f)
 				r.FieldsPerRecord = -1
-				r.LazyQuotes = true
 				out[base] = r
 			}
 			return nil
@@ -63,7 +62,6 @@ func ZipOrDirReaders(path string) (map[string]*csv.Reader, func() error, error) 
 			}
 			r := csv.NewReader(rc)
 			r.FieldsPerRecord = -1
-			r.LazyQuotes = true
 			out[base] = r
 		}
 	}
@@ -124,7 +122,6 @@ func ZipBytesReaders(zipData []byte) (map[string]*csv.Reader, func() error, erro
 		closers = append(closers, rc)
 		csvReader := csv.NewReader(rc)
 		csvReader.FieldsPerRecord = -1
-		csvReader.LazyQuotes = true
 		out[base] = csvReader
 	}
 

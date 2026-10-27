@@ -498,15 +498,9 @@ func TestNewValidatorFromBytes_EmptyZip(t *testing.T) {
 	zw := zip.NewWriter(buf)
 	_ = zw.Close()
 
-	v, err := NewValidatorFromBytes(buf.Bytes(), Options{})
-	// Should handle gracefully (empty Metadata, no errors)
-	if err != nil {
-		t.Errorf("Unexpected error for empty zip: %v", err)
-	}
-
-	// Validator should still be usable
-	if v == nil {
-		t.Error("Validator should not be nil for empty zip")
+	// An empty release must not load, or every trip would read as unknown.
+	if _, err := NewValidatorFromBytes(buf.Bytes(), Options{}); err == nil {
+		t.Error("Expected an error for an empty zip")
 	}
 }
 
