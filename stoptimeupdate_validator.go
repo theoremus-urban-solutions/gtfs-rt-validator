@@ -152,16 +152,23 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 			}
 
 			// E046: Skip in RT-only mode (requires static GTFS stop_times)
-			if tripStatic != nil {
-				if (stu.GetArrival() == nil || stu.GetArrival().GetTime() == 0) && (stu.GetDeparture() == nil || stu.GetDeparture().GetTime() == 0) {
-					if stopSeq > 0 {
-						if st, ok := findSeq(trip, stopSeq); ok && !st.ArrivalSet && !st.DepartureSet {
-							c.add("E046", "trip_id "+tripID, eid, "", map[string]string{
-								"trip_id":       tripID,
-								"stop_id":       stopID,
-								"stop_sequence": stopSeqStr,
-							})
-						}
+			if tripStatic != nil && stu.StopSequence != nil {
+				if st, ok := findSeq(trip, stopSeq); ok {
+					if ev := stu.GetArrival(); ev != nil && ev.Time == nil && !st.ArrivalSet {
+						c.add("E046", "trip_id "+tripID, eid, "arrival", map[string]string{
+							"trip_id":       tripID,
+							"stop_id":       stopID,
+							"stop_sequence": stopSeqStr,
+							"event":         "arrival",
+						})
+					}
+					if ev := stu.GetDeparture(); ev != nil && ev.Time == nil && !st.DepartureSet {
+						c.add("E046", "trip_id "+tripID, eid, "departure", map[string]string{
+							"trip_id":       tripID,
+							"stop_id":       stopID,
+							"stop_sequence": stopSeqStr,
+							"event":         "departure",
+						})
 					}
 				}
 			}

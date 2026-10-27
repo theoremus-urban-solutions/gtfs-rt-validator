@@ -133,7 +133,7 @@ func canonicalCases() []canonicalCase {
 		{name: "2 skipped stop carrying an empty arrival", feed: fxFeed(fxTU("T1", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(2), "S2", &rt.TripUpdate_StopTimeEvent{}, nil, skp))),
 			want: map[RuleID]int{"E044": 1}},
 		{name: "3 skipped stop by sequence only at an untimed GTFS stop", feed: fxFeed(fxTU("T_UNTIMED", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(2), "", nil, nil, skp))),
-			want: map[RuleID]int{"E046": 1}},
+			want: map[RuleID]int{}},
 		{name: "4 loop trip from stop_sequence 0", feed: fxFeed(fxTU("T_LOOP", "", S, fxSTU(seqp(0), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(1), "S2", fxAt(fxT0+300), nil, sch))),
 			want: map[RuleID]int{"E009": 1}},
 		{name: "5 stop_sequence 0 with no stop_id", feed: fxFeed(fxTU("T_LOOP", "", S, fxSTU(seqp(0), "", fxAt(fxT0), nil, sch))),
@@ -183,6 +183,9 @@ func canonicalCases() []canonicalCase {
 			want: map[RuleID]int{}},
 		{name: "27 vehicle 1,800 m east of the easternmost stop", feed: fxFeed(fxVP("v", "T1", fxNow, &rt.Position{Latitude: proto.Float32(42.71), Longitude: proto.Float32(23.352)})),
 			want: map[RuleID]int{"E028": 1}},
+		{name: "28 untimed GTFS stop sent with arrival and departure delays only", feed: fxFeed(fxTU("T_UNTIMED", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch),
+			fxSTU(seqp(2), "S2", &rt.TripUpdate_StopTimeEvent{Delay: proto.Int32(60)}, &rt.TripUpdate_StopTimeEvent{Delay: proto.Int32(60)}, sch))),
+			want: map[RuleID]int{"E046": 2}},
 	}
 }
 
