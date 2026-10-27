@@ -78,8 +78,10 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 				}
 			}
 
-			if ev := stu.GetArrival(); ev != nil {
-				if ev.GetDelay() == 0 && ev.GetTime() == 0 {
+			// SKIPPED stops need no delay or time.
+			skipped := stu.GetScheduleRelationship() == rt.TripUpdate_StopTimeUpdate_SKIPPED
+			if ev := stu.GetArrival(); ev != nil && !skipped {
+				if ev.Delay == nil && ev.Time == nil {
 					c.add("E044", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
@@ -88,8 +90,8 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 					})
 				}
 			}
-			if ev := stu.GetDeparture(); ev != nil {
-				if ev.GetDelay() == 0 && ev.GetTime() == 0 {
+			if ev := stu.GetDeparture(); ev != nil && !skipped {
+				if ev.Delay == nil && ev.Time == nil {
 					c.add("E044", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
