@@ -46,7 +46,7 @@ func (TripDescriptorValidator) Validate(c *Check) {
 							"schedule_relationship": "ADDED",
 						})
 					}
-					if s := td.GetStartTime(); s != "" && trip.FirstArrival >= 0 {
+					if s := td.GetStartTime(); s != "" && trip.FirstArrival >= 0 && trip.Frequency == NotFrequency {
 						if t, ok := parseClock(s); !ok || t != trip.FirstArrival {
 							c.add("E023", "trip_id "+tripID, eid, s, map[string]string{
 								"trip_id":  tripID,

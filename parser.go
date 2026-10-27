@@ -322,10 +322,11 @@ func parseFrequencies(r *csv.Reader, md *Metadata) error {
 				f.HeadwaySecs = v
 			}
 		}
-		if et := get(rec, idx, "exact_times"); et != "" {
-			if v, err := strconv.Atoi(et); err == nil {
-				f.ExactTimes = &v
-			}
+		// A blank exact_times means 0.
+		if et := get(rec, idx, "exact_times"); et == "" {
+			f.ExactTimes = new(int)
+		} else if v, err := strconv.Atoi(et); err == nil {
+			f.ExactTimes = &v
 		}
 		if f.TripID != "" {
 			if f.ExactTimes != nil && *f.ExactTimes == 0 {
