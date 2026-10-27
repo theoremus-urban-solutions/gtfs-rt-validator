@@ -5,7 +5,6 @@ import (
 )
 
 type FreqZeroValidator struct{}
-type FreqOneValidator struct{}
 
 func (FreqZeroValidator) Validate(c *Check) {
 	for _, e := range c.Feed.GetEntity() {
@@ -62,30 +61,6 @@ func (FreqZeroValidator) Validate(c *Check) {
 						})
 					}
 				}
-			}
-		}
-	}
-}
-
-func (FreqOneValidator) Validate(c *Check) {
-	for _, e := range c.Feed.GetEntity() {
-		eid := e.GetId()
-		if tu := e.GetTripUpdate(); tu != nil {
-			tid := tu.GetTrip().GetTripId()
-			info, p := c.Static.Trip(tid, tu.GetTrip().GetStartDate())
-			if p != Present || info.Frequency != FrequencyExact {
-				continue
-			}
-			st := tu.GetTrip().GetStartTime()
-			if st == "" {
-				continue
-			}
-			match := true
-			if !match {
-				c.add("E019", "trip_id "+tid, eid, st, map[string]string{
-					"trip_id":    tid,
-					"start_time": st,
-				})
 			}
 		}
 	}

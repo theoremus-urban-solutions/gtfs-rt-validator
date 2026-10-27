@@ -9,7 +9,6 @@ var defaultValidators = []FeedEntityValidator{
 	TripDescriptorValidator{},
 	StopValidator{},
 	FreqZeroValidator{},
-	FreqOneValidator{},
 }
 
 var rtOnlyValidators = []FeedEntityValidator{

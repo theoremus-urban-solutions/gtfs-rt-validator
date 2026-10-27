@@ -36,9 +36,9 @@ func TestRTOnlyValidatorsCount(t *testing.T) {
 		t.Errorf("Expected 5 RT-only validators, got %d", len(rtOnly))
 	}
 
-	// Full should have 9 validators
-	if len(full) != 9 {
-		t.Errorf("Expected 9 full validators, got %d", len(full))
+	// Full should have 8 validators
+	if len(full) != 8 {
+		t.Errorf("Expected 8 full validators, got %d", len(full))
 	}
 }
 

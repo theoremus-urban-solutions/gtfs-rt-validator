@@ -21,7 +21,7 @@ Errors indicate spec violations, format errors, or logically impossible data.
 | [E016](#E016) | `trip_ids` with `schedule_relationship` `ADDED` must not be in GTFS data
 | [E017](#E017) | GTFS-rt content changed but has the same header `timestamp`
 | [E018](#E018) | GTFS-rt header `timestamp` decreased between two sequential iterations
-| [E019](#E019) | GTFS-rt frequency type 1 trip `start_time` must be a multiple of GTFS `headway_secs` later than GTFS `start_time`
+| [E019](#E019) | GTFS-rt frequency type 1 trip `start_time` must be a multiple of GTFS `headway_secs` later than GTFS `start_time` (not implemented)
 | [E020](#E020) | Invalid `start_time` format
 | [E021](#E021) | Invalid `start_date` format
 | [E022](#E022) | Sequential `stop_time_update` times are not increasing
@@ -31,7 +31,7 @@ Errors indicate spec violations, format errors, or logically impossible data.
 | [E026](#E026) | Invalid vehicle `position`
 | [E027](#E027) | Invalid vehicle `bearing`
 | [E028](#E028) | Vehicle `position` outside agency coverage area
-| [E029](#E029) | Vehicle `position` far from trip shape
+| [E029](#E029) | Vehicle `position` far from trip shape (not implemented)
 | [E030](#E030) | GTFS-rt alert `trip_id` does not belong to GTFS-rt alert `route_id`
 | [E031](#E031) | Alert `informed_entity.route_id` does not match `informed_entity.trip.route_id`
 | [E032](#E032) | Alert does not have an `informed_entity`
@@ -216,6 +216,8 @@ The GTFS-rt header `timestamp` should be monotonically increasing.
 
 For frequency-based trips defined in `frequencies.txt` with `exact_times` = 1, the GTFS-rt trip `start_time` must be some multiple (including zero) of `headway_secs` later than the `start_time` in `frequencies.txt`.
 
+**Not implemented in this validator.** No feed raises E019.
+
 #### References:
 * [`trip.start_time`](https://github.com/google/transit/blob/master/gtfs-realtime/spec/en/reference.md#message-tripdescriptor)
 
@@ -309,6 +311,8 @@ The vehicle `position` should be inside the agency coverage area, defined by a b
 ### E029 - Vehicle `position` far from trip shape
 
 The vehicle `position` should be within a buffer surrounding the GTFS `shapes.txt` data for the current trip.
+
+**Not implemented in this validator.** No feed raises E029.
 
 #### References:
 * [GTFS `shapes.txt`](https://github.com/google/transit/blob/master/gtfs/spec/en/reference.md#shapestxt)
