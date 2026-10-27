@@ -37,7 +37,6 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 		var hadE051 bool
 		var prevSeq int = -1
 		var prevStopID string
-		var prevArr int64
 
 		for _, stu := range tu.GetStopTimeUpdate() {
 			stopID := stu.GetStopId()
@@ -179,41 +178,55 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 				}
 			}
 
-			var thisTime int64
-			if stu.GetArrival() != nil && stu.GetArrival().GetTime() != 0 {
-				thisTime = stu.GetArrival().GetTime()
-			} else if stu.GetDeparture() != nil && stu.GetDeparture().GetTime() != 0 {
-				thisTime = stu.GetDeparture().GetTime()
-			}
-			if thisTime != 0 {
-				if prevArr != 0 && thisTime <= prevArr {
-					c.add("E022", "trip_id "+tripID, eid, fmt.Sprintf("%d", thisTime), map[string]string{
-						"trip_id":       tripID,
-						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
-						"current_time":  fmt.Sprintf("%d", thisTime),
-						"previous_time": fmt.Sprintf("%d", prevArr),
-					})
-				}
-				prevArr = thisTime
-			}
-			if stu.GetArrival() != nil && stu.GetDeparture() != nil && stu.GetArrival().GetTime() != 0 && stu.GetDeparture().GetTime() != 0 {
-				if stu.GetDeparture().GetTime() < stu.GetArrival().GetTime() {
-					c.add("E025", "trip_id "+tripID, eid, "", map[string]string{
-						"trip_id":        tripID,
-						"stop_id":        stopID,
-						"stop_sequence":  stopSeqStr,
-						"arrival_time":   fmt.Sprintf("%d", stu.GetArrival().GetTime()),
-						"departure_time": fmt.Sprintf("%d", stu.GetDeparture().GetTime()),
-					})
-				}
-			}
 		}
+
+		checkStopTimes(c, eid, tripID, tu.GetStopTimeUpdate())
 
 		if len(tu.GetStopTimeUpdate()) == 0 && tu.GetTrip().GetScheduleRelationship() != rt.TripDescriptor_CANCELED {
 			c.add("E041", "trip_id "+tripID, eid, "", map[string]string{
 				"trip_id": tripID,
 			})
+		}
+	}
+}
+
+// checkStopTimes raises E022 and E025 in a pass of its own, as canonical does, so no break in the sequence checks can skip them.
+func checkStopTimes(c *Check, eid, tripID string, stus []*rt.TripUpdate_StopTimeUpdate) {
+	var prevArr int64
+	for _, stu := range stus {
+		if stu.GetScheduleRelationship() == rt.TripUpdate_StopTimeUpdate_NO_DATA {
+			continue
+		}
+		stopID := stu.GetStopId()
+		stopSeqStr := fmt.Sprintf("%d", stu.GetStopSequence())
+		var thisTime int64
+		if stu.GetArrival() != nil && stu.GetArrival().GetTime() != 0 {
+			thisTime = stu.GetArrival().GetTime()
+		} else if stu.GetDeparture() != nil && stu.GetDeparture().GetTime() != 0 {
+			thisTime = stu.GetDeparture().GetTime()
+		}
+		if thisTime != 0 {
+			if prevArr != 0 && thisTime <= prevArr {
+				c.add("E022", "trip_id "+tripID, eid, fmt.Sprintf("%d", thisTime), map[string]string{
+					"trip_id":       tripID,
+					"stop_id":       stopID,
+					"stop_sequence": stopSeqStr,
+					"current_time":  fmt.Sprintf("%d", thisTime),
+					"previous_time": fmt.Sprintf("%d", prevArr),
+				})
+			}
+			prevArr = thisTime
+		}
+		if stu.GetArrival() != nil && stu.GetDeparture() != nil && stu.GetArrival().GetTime() != 0 && stu.GetDeparture().GetTime() != 0 {
+			if stu.GetDeparture().GetTime() < stu.GetArrival().GetTime() {
+				c.add("E025", "trip_id "+tripID, eid, "", map[string]string{
+					"trip_id":        tripID,
+					"stop_id":        stopID,
+					"stop_sequence":  stopSeqStr,
+					"arrival_time":   fmt.Sprintf("%d", stu.GetArrival().GetTime()),
+					"departure_time": fmt.Sprintf("%d", stu.GetDeparture().GetTime()),
+				})
+			}
 		}
 	}
 }

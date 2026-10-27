@@ -178,7 +178,7 @@ func canonicalCases() []canonicalCase {
 		{name: "24 known trip with equal times at stops 2 and 3", feed: fxFeed(fxTU("T1", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(2), "S2", fxAt(fxT0+300), nil, sch), fxSTU(seqp(3), "S3", fxAt(fxT0+300), nil, sch))),
 			want: map[RuleID]int{"E022": 1}},
 		{name: "25 known trip with an unknown stop_sequence before equal times", feed: fxFeed(fxTU("T1", "", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch), fxSTU(seqp(7), "S2", fxAt(fxT0+300), nil, sch), fxSTU(seqp(3), "S3", fxAt(fxT0+300), nil, sch))),
-			want: map[RuleID]int{"E051": 1}},
+			want: map[RuleID]int{"E022": 1, "E051": 1}},
 	}
 }
 
