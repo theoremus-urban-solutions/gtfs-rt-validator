@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"math"
 	"time"
 )
 
@@ -82,12 +83,27 @@ func (r *Rect) Expand(lat, lon float64) {
 	}
 }
 
+// Buffered widens the box by deltaDeg of latitude on every side, scaling the longitude margin by latitude as spatial4j does.
 func (r Rect) Buffered(deltaDeg float64) Rect {
+	if r.MaxLat+deltaDeg >= 90 || r.MinLat-deltaDeg <= -90 {
+		return Rect{MinLat: math.Max(-90, r.MinLat-deltaDeg), MinLon: -180, MaxLat: math.Min(90, r.MaxLat+deltaDeg), MaxLon: 180}
+	}
+	poleLat := r.MinLat
+	if math.Abs(r.MaxLat) > math.Abs(r.MinLat) {
+		poleLat = r.MaxLat
+	}
+	lonDeg := 90.0
+	if d := math.Asin(math.Sin(deltaDeg*math.Pi/180) / math.Cos(poleLat*math.Pi/180)); !math.IsNaN(d) {
+		lonDeg = d * 180 / math.Pi
+	}
+	if lonDeg*2+r.MaxLon-r.MinLon >= 360 {
+		return Rect{MinLat: r.MinLat - deltaDeg, MinLon: -180, MaxLat: r.MaxLat + deltaDeg, MaxLon: 180}
+	}
 	return Rect{
 		MinLat: r.MinLat - deltaDeg,
-		MinLon: r.MinLon - deltaDeg,
+		MinLon: r.MinLon - lonDeg,
 		MaxLat: r.MaxLat + deltaDeg,
-		MaxLon: r.MaxLon + deltaDeg,
+		MaxLon: r.MaxLon + lonDeg,
 	}
 }
 
