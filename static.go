@@ -46,7 +46,10 @@ type TripInfo struct {
 	// RepeatsStop is true when the trip visits one stop more than once.
 	RepeatsStop bool
 
-	md []StopTime
+	// md backs a Metadata trip; recs and stopNames back a StaticIndex trip.
+	md        []StopTime
+	recs      []stopRec
+	stopNames []string
 }
 
 // ScheduledStop is one stop_times.txt row of a trip.
@@ -59,11 +62,23 @@ type ScheduledStop struct {
 
 // NumStops is the number of stop_times rows of the trip.
 func (t TripInfo) NumStops() int {
+	if t.recs != nil {
+		return len(t.recs)
+	}
 	return len(t.md)
 }
 
 // StopAt returns the i-th stop_times row in stop_sequence order.
 func (t TripInfo) StopAt(i int) ScheduledStop {
+	if t.recs != nil {
+		r := t.recs[i]
+		return ScheduledStop{
+			Sequence:     uint32(r.seq),
+			StopID:       t.stopNames[r.stop&stopMask],
+			ArrivalSet:   r.stop&stopArrSet != 0,
+			DepartureSet: r.stop&stopDepSet != 0,
+		}
+	}
 	st := t.md[i]
 	return ScheduledStop{
 		Sequence:     uint32(st.StopSequence),

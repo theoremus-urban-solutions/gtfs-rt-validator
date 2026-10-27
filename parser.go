@@ -404,6 +404,11 @@ func readHeader(name string, r *csv.Reader) (map[string]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
+	return checkHeader(name, h)
+}
+
+// checkHeader indexes a header row and fails when a required column is missing.
+func checkHeader(name string, h []string) (map[string]int, error) {
 	idx := index(h)
 	for _, col := range requiredColumns[name] {
 		if _, ok := idx[col]; !ok {

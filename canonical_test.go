@@ -64,7 +64,11 @@ func backends(t testing.TB, zipData []byte) map[string]Static {
 	if err != nil {
 		t.Fatalf("metadata: %v", err)
 	}
-	return map[string]Static{"metadata": md}
+	ix, err := LoadStaticIndex(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("index: %v", err)
+	}
+	return map[string]Static{"metadata": md, "index": ix}
 }
 
 const fxNow = uint64(1793094553)
@@ -283,7 +287,8 @@ func TestValidateFeedConcurrentFeedsShareNothing(t *testing.T) {
 // loaders loads a zip through every Static implementation and returns each error.
 func loaders(zipData []byte) map[string]error {
 	_, mdErr := LoadMetadataFromBytes(zipData, false)
-	return map[string]error{"metadata": mdErr}
+	_, ixErr := LoadStaticIndex(bytes.NewReader(zipData), int64(len(zipData)))
+	return map[string]error{"metadata": mdErr, "index": ixErr}
 }
 
 func withFile(name, body string) map[string]string {

@@ -55,14 +55,13 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 		for i, stu := range stus {
 			stopID := stu.GetStopId()
 			stopSeq := stu.GetStopSequence()
-			stopSeqStr := strconv.FormatUint(uint64(stopSeq), 10)
 			hasSeq, hasStop := stu.StopSequence != nil, stu.StopId != nil
 
 			if stu.ScheduleRelationship == nil {
 				c.add("W009", "trip_id "+tripID, eid, "", map[string]string{
 					"trip_id":       tripID,
 					"stop_id":       stopID,
-					"stop_sequence": stopSeqStr,
+					"stop_sequence": u32s(stopSeq),
 				})
 			}
 
@@ -75,16 +74,16 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 			}
 			if i > 0 {
 				if hasSeq && stopSeq == prevSeq {
-					c.add("E036", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
+					c.add("E036", "trip_id "+tripID, eid, u32s(stopSeq), map[string]string{
 						"trip_id":       tripID,
-						"stop_sequence": stopSeqStr,
+						"stop_sequence": u32s(stopSeq),
 					})
 				}
 				if prevStopID != "" && hasStop && stopID == prevStopID {
 					c.add("E037", "trip_id "+tripID, eid, stopID, map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
+						"stop_sequence": u32s(stopSeq),
 					})
 				}
 			}
@@ -102,7 +101,7 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 						if hasStop && st.StopID != stopID {
 							c.add("E045", "trip_id "+tripID, eid, stopID, map[string]string{
 								"trip_id":       tripID,
-								"stop_sequence": stopSeqStr,
+								"stop_sequence": u32s(stopSeq),
 								"expected":      st.StopID,
 								"actual":        stopID,
 							})
@@ -137,14 +136,14 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 					c.add("E042", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
+						"stop_sequence": u32s(stopSeq),
 					})
 				}
 			} else if sr != rt.TripUpdate_StopTimeUpdate_SKIPPED && stu.Arrival == nil && stu.Departure == nil {
 				c.add("E043", "trip_id "+tripID, eid, "", map[string]string{
 					"trip_id":       tripID,
 					"stop_id":       stopID,
-					"stop_sequence": stopSeqStr,
+					"stop_sequence": u32s(stopSeq),
 				})
 			}
 			// SKIPPED stops need no delay or time.
@@ -157,7 +156,7 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 						c.add("E044", "trip_id "+tripID, eid, "", map[string]string{
 							"trip_id":       tripID,
 							"stop_id":       stopID,
-							"stop_sequence": stopSeqStr,
+							"stop_sequence": u32s(stopSeq),
 							"event_type":    ev.name,
 						})
 					}
@@ -165,9 +164,9 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 			}
 
 			if unknownSeq {
-				c.add("E051", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
+				c.add("E051", "trip_id "+tripID, eid, u32s(stopSeq), map[string]string{
 					"trip_id":       tripID,
-					"stop_sequence": stopSeqStr,
+					"stop_sequence": u32s(stopSeq),
 				})
 				break
 			}
@@ -197,7 +196,6 @@ func checkStopTimes(c *Check, eid, tripID string, stus []*rt.TripUpdate_StopTime
 			continue
 		}
 		stopID := stu.GetStopId()
-		stopSeqStr := fmt.Sprintf("%d", stu.GetStopSequence())
 		var thisTime int64
 		if stu.GetArrival() != nil && stu.GetArrival().GetTime() != 0 {
 			thisTime = stu.GetArrival().GetTime()
@@ -209,7 +207,7 @@ func checkStopTimes(c *Check, eid, tripID string, stus []*rt.TripUpdate_StopTime
 				c.add("E022", "trip_id "+tripID, eid, fmt.Sprintf("%d", thisTime), map[string]string{
 					"trip_id":       tripID,
 					"stop_id":       stopID,
-					"stop_sequence": stopSeqStr,
+					"stop_sequence": strconv.FormatUint(uint64(stu.GetStopSequence()), 10),
 					"current_time":  fmt.Sprintf("%d", thisTime),
 					"previous_time": fmt.Sprintf("%d", prevArr),
 				})
@@ -221,7 +219,7 @@ func checkStopTimes(c *Check, eid, tripID string, stus []*rt.TripUpdate_StopTime
 				c.add("E025", "trip_id "+tripID, eid, "", map[string]string{
 					"trip_id":        tripID,
 					"stop_id":        stopID,
-					"stop_sequence":  stopSeqStr,
+					"stop_sequence":  strconv.FormatUint(uint64(stu.GetStopSequence()), 10),
 					"arrival_time":   fmt.Sprintf("%d", stu.GetArrival().GetTime()),
 					"departure_time": fmt.Sprintf("%d", stu.GetDeparture().GetTime()),
 				})
@@ -229,6 +227,9 @@ func checkStopTimes(c *Check, eid, tripID string, stus []*rt.TripUpdate_StopTime
 		}
 	}
 }
+
+// u32s formats a stop_sequence for a notice.
+func u32s(x uint32) string { return strconv.FormatUint(uint64(x), 10) }
 
 // checkE046 raises E046 for each sent arrival or departure that has no time where GTFS has none either.
 func checkE046(c *Check, eid, tripID string, stu *rt.TripUpdate_StopTimeUpdate, st ScheduledStop) {

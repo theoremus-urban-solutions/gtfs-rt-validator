@@ -2,17 +2,39 @@ package validator
 
 import (
 	"fmt"
-	"regexp"
 
 	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
 
 type TripDescriptorValidator struct{}
 
-var (
-	reStartTime = regexp.MustCompile(`^([0-1]?\d|2\d|29):[0-5]\d:[0-5]\d$`)
-	reStartDate = regexp.MustCompile(`^\d{8}$`)
-)
+// validStartTime matches ^([0-1]?\d|2\d|29):[0-5]\d:[0-5]\d$ without a regexp.
+func validStartTime(s string) bool {
+	n := len(s)
+	if n != 7 && n != 8 {
+		return false
+	}
+	if n == 8 && (s[0] < '0' || s[0] > '2') {
+		return false
+	}
+	return isDigit(s[n-7]) && s[n-6] == ':' && s[n-5] >= '0' && s[n-5] <= '5' && isDigit(s[n-4]) &&
+		s[n-3] == ':' && s[n-2] >= '0' && s[n-2] <= '5' && isDigit(s[n-1])
+}
+
+// validStartDate matches ^\d{8}$ without a regexp.
+func validStartDate(s string) bool {
+	if len(s) != 8 {
+		return false
+	}
+	for i := 0; i < 8; i++ {
+		if !isDigit(s[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isDigit(b byte) bool { return b >= '0' && b <= '9' }
 
 func (TripDescriptorValidator) Validate(c *Check) {
 	for _, e := range c.Feed.GetEntity() {
@@ -71,13 +93,13 @@ func (TripDescriptorValidator) Validate(c *Check) {
 						"route_id": routeID,
 					})
 				}
-				if s := td.GetStartTime(); s != "" && !reStartTime.MatchString(s) {
+				if s := td.GetStartTime(); s != "" && !validStartTime(s) {
 					c.add("E020", "start_time "+s, eid, s, map[string]string{
 						"trip_id":    tripID,
 						"start_time": s,
 					})
 				}
-				if d := td.GetStartDate(); d != "" && !reStartDate.MatchString(d) {
+				if d := td.GetStartDate(); d != "" && !validStartDate(d) {
 					c.add("E021", "start_date "+d, eid, d, map[string]string{
 						"trip_id":    tripID,
 						"start_date": d,
