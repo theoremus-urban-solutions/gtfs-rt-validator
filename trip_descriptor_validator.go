@@ -100,28 +100,31 @@ func (TripDescriptorValidator) Validate(c *Check) {
 						"agency_id": aid,
 					})
 				}
-				if td := ie.GetTrip(); td != nil {
+				if td := ie.Trip; td != nil {
 					tid := td.GetTripId()
-					if trip, p := c.Static.Trip(tid, td.GetStartDate()); p == Present {
-						if ie.GetRouteId() != "" && trip.RouteID != ie.GetRouteId() {
-							c.add("E031", "trip_id "+tid, eid, ie.GetRouteId(), map[string]string{
+					info, p := TripInfo{}, Absent
+					if td.TripId != nil {
+						info, p = c.Static.Trip(tid, td.GetStartDate())
+					}
+					if p == Present && td.RouteId != nil && c.Static.Route(td.GetRouteId()) == Present && td.GetRouteId() != info.RouteID {
+						c.add("E035", "trip_id "+tid, eid, td.GetRouteId(), map[string]string{
+							"trip_id":                tid,
+							"trip_descriptor_route":  td.GetRouteId(),
+							"expected_trip_route_id": info.RouteID,
+						})
+					}
+					if ie.RouteId != nil {
+						if p == Present && ie.GetRouteId() != info.RouteID {
+							c.add("E030", "trip_id "+tid, eid, ie.GetRouteId(), map[string]string{
 								"trip_id":                  tid,
 								"informed_entity_route_id": ie.GetRouteId(),
-								"trip_route_id":            trip.RouteID,
+								"trip_route_id":            info.RouteID,
 							})
 						}
-						if td.GetRouteId() != "" && td.GetRouteId() != trip.RouteID {
-							c.add("E035", "trip_id "+tid, eid, td.GetRouteId(), map[string]string{
-								"trip_id":                tid,
-								"trip_descriptor_route":  td.GetRouteId(),
-								"expected_trip_route_id": trip.RouteID,
-							})
-						}
-						if ie.GetRouteId() != "" && td.GetRouteId() != "" && td.GetRouteId() != ie.GetRouteId() {
-							c.add("E030", "trip_id "+tid, eid, "", map[string]string{
-								"trip_id":                  tid,
-								"trip_descriptor_route":    td.GetRouteId(),
+						if td.RouteId != nil && td.GetRouteId() != ie.GetRouteId() {
+							c.add("E031", "route_id "+ie.GetRouteId(), eid, td.GetRouteId(), map[string]string{
 								"informed_entity_route_id": ie.GetRouteId(),
+								"trip_route_id":            td.GetRouteId(),
 							})
 						}
 					}
