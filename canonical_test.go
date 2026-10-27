@@ -139,7 +139,7 @@ func canonicalCases() []canonicalCase {
 		{name: "5 stop_sequence 0 with no stop_id", feed: fxFeed(fxTU("T_LOOP", "", S, fxSTU(seqp(0), "", fxAt(fxT0), nil, sch))),
 			want: map[RuleID]int{"E009": 1, "E040": 1}},
 		{name: "6 exact_times 0 trip with schedule_relationship unset", feed: fxFeed(fxTU("T_FREQ0", "06:10:00", nil, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch))),
-			want: map[RuleID]int{"E013": 1, "W009": 1}},
+			want: map[RuleID]int{"W009": 1}},
 		{name: "7 blank exact_times trip starting 06:10:00", feed: fxFeed(fxTU("T_FREQ_BLANK", "06:10:00", rt.TripDescriptor_UNSCHEDULED.Enum(), fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch))),
 			want: map[RuleID]int{}},
 		{name: "8 GTFS first arrival 5:30:00 and start_time 05:30:00", feed: fxFeed(fxTU("T_SHORT", "05:30:00", S, fxSTU(seqp(1), "S1", fxAt(fxT0), nil, sch))),

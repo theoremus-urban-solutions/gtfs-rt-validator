@@ -34,7 +34,7 @@ func (FreqZeroValidator) Validate(c *Check) {
 						"missing_field": "trip_id",
 					})
 				}
-				if tu.GetTrip().GetScheduleRelationship() != rt.TripDescriptor_UNSCHEDULED {
+				if sr := tu.GetTrip().ScheduleRelationship; sr != nil && *sr != rt.TripDescriptor_UNSCHEDULED {
 					c.add("E013", "trip_id "+tid, eid, tu.GetTrip().GetScheduleRelationship().String(), map[string]string{
 						"trip_id":               tid,
 						"schedule_relationship": tu.GetTrip().GetScheduleRelationship().String(),
