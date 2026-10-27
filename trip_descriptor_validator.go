@@ -91,10 +91,9 @@ func (TripDescriptorValidator) Validate(c *Check) {
 				c.add("E032", "alert", eid, "", nil)
 				continue
 			}
-			anySpecified := false
 			for _, ie := range ies {
-				if ie.GetRouteId() != "" || (ie.Trip != nil && ie.Trip.GetTripId() != "") || ie.GetStopId() != "" || ie.GetAgencyId() != "" {
-					anySpecified = true
+				if !selectsSomething(ie) {
+					c.add("E033", "alert.informed_entity", eid, "", nil)
 				}
 				if aid := ie.GetAgencyId(); aid != "" && c.Static.Agency(aid) == Absent {
 					c.add("E034", "agency_id "+aid, eid, aid, map[string]string{
@@ -128,9 +127,15 @@ func (TripDescriptorValidator) Validate(c *Check) {
 					}
 				}
 			}
-			if !anySpecified {
-				c.add("E033", "alert.informed_entity", eid, "", nil)
-			}
 		}
 	}
+}
+
+// selectsSomething reports whether a selector names an agency, route, route type, stop, trip or trip route.
+func selectsSomething(ie *rt.EntitySelector) bool {
+	if ie.AgencyId != nil || ie.RouteId != nil || ie.RouteType != nil || ie.StopId != nil {
+		return true
+	}
+	td := ie.GetTrip()
+	return td != nil && (td.TripId != nil || td.RouteId != nil)
 }
