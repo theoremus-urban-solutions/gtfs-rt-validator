@@ -39,10 +39,10 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 		// gi walks the GTFS stops once, in step with the updates, as canonical does.
 		gi, nStops := 0, trip.NumStops()
 		var (
-			e009, ordered, fromStopID = false, true, false
-			nSeqs                     int
-			lastSeq, prevSeq          uint32
-			prevStopID                string
+			e009, w009, ordered, fromStopID = false, false, true, false
+			nSeqs                           int
+			lastSeq, prevSeq                uint32
+			prevStopID                      string
 		)
 		addSeq := func(seq uint32) {
 			if nSeqs > 0 && seq <= lastSeq {
@@ -57,12 +57,13 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 			stopSeq := stu.GetStopSequence()
 			hasSeq, hasStop := stu.StopSequence != nil, stu.StopId != nil
 
-			if stu.ScheduleRelationship == nil {
+			if !w009 && stu.ScheduleRelationship == nil {
 				c.add("W009", "trip_id "+tripID, eid, "", map[string]string{
 					"trip_id":       tripID,
 					"stop_id":       stopID,
 					"stop_sequence": u32s(stopSeq),
 				})
+				w009 = true
 			}
 
 			if !e009 && tripStatic != nil && trip.RepeatsStop && !hasSeq {

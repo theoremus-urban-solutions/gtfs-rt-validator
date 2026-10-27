@@ -25,6 +25,16 @@ func ZipOrDirReaders(path string) (map[string]*csv.Reader, func() error, error) 
 		return nil, cleanup, err
 	}
 	if info.IsDir() {
+		var files []*os.File
+		cleanup = func() error {
+			var first error
+			for _, f := range files {
+				if err := f.Close(); err != nil && first == nil {
+					first = err
+				}
+			}
+			return first
+		}
 		err = filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -38,13 +48,18 @@ func ZipOrDirReaders(path string) (map[string]*csv.Reader, func() error, error) 
 				if err != nil {
 					return err
 				}
+				files = append(files, f)
 				r := csv.NewReader(f)
 				r.FieldsPerRecord = -1
 				out[base] = r
 			}
 			return nil
 		})
-		return out, cleanup, err
+		if err != nil {
+			_ = cleanup()
+			return nil, func() error { return nil }, err
+		}
+		return out, cleanup, nil
 	}
 	// assume zip
 	z, err := zip.OpenReader(path)

@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -360,5 +362,39 @@ func TestParseClock(t *testing.T) {
 		if got := formatClock(in); got != want {
 			t.Errorf("formatClock(%d) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestW009OncePerTrip checks that stop updates with no schedule_relationship raise W009 once per trip, as canonical does.
+func TestW009OncePerTrip(t *testing.T) {
+	noSR := func(seq uint32, stop string, at int64) *rt.TripUpdate_StopTimeUpdate {
+		return &rt.TripUpdate_StopTimeUpdate{StopSequence: proto.Uint32(seq), StopId: proto.String(stop), Arrival: fxAt(at)}
+	}
+	feed := fxFeed(fxTU("T1", "", rt.TripDescriptor_SCHEDULED.Enum(), noSR(1, "S1", fxT0), noSR(2, "S2", fxT0+300)))
+	for name, static := range backends(t, zipOf(t, fixtureFiles)) {
+		res := ValidateFeed(context.Background(), static, feed, nil, Options{Now: time.Unix(int64(fxNow), 0)})
+		if got := countsString(res.Counts); got != "W009 x1" {
+			t.Errorf("%s: got %s, want W009 x1", name, got)
+		}
+	}
+}
+
+// TestDirectoryReaderClosesFiles checks that LoadMetadata closes the files it opens from a directory.
+func TestDirectoryReaderClosesFiles(t *testing.T) {
+	dir := t.TempDir()
+	for name, body := range fixtureFiles {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	readers, cleanup, err := ZipOrDirReaders(dir)
+	if err != nil || len(readers) == 0 {
+		t.Fatalf("readers %d, err %v", len(readers), err)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup(); err == nil {
+		t.Error("second cleanup closed nothing, so the first left the files open")
 	}
 }

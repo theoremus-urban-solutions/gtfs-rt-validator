@@ -6,7 +6,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // LoadMetadata parses GTFS files and builds Metadata
@@ -121,12 +120,6 @@ func buildMetadataFromReaders(readers map[string]*csv.Reader, ignoreShapes bool)
 	if md.ShapeBBox != nil {
 		sb := md.ShapeBBox.Buffered(regionBufDeg)
 		md.ShapeBBoxBuffered = &sb
-	}
-
-	if tz := firstAgencyTZ(readers["agency.txt"]); tz != "" {
-		if loc, err := time.LoadLocation(tz); err == nil {
-			md.TimeZone = loc
-		}
 	}
 
 	for tripID, sts := range md.StopTimesByTripID {
@@ -442,12 +435,4 @@ func stableSortStopTimes(in []StopTime) []StopTime {
 		}
 	}
 	return in
-}
-
-func firstAgencyTZ(r *csv.Reader) string {
-	if r == nil {
-		return ""
-	}
-	_ = fmt.Sprintf
-	return ""
 }

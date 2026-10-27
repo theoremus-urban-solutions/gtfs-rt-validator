@@ -2,7 +2,6 @@ package validator
 
 import (
 	"math"
-	"time"
 )
 
 type Agency struct {
@@ -128,7 +127,6 @@ type Metadata struct {
 	ShapeBBox             *Rect
 	ShapeBBoxBuffered     *Rect
 	TripsWithMultiStops   map[string][]string
-	TimeZone              *time.Location
 }
 
 const (
