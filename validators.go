@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"bytes"
 	"context"
 	"sync"
 	"time"
@@ -22,7 +23,7 @@ type Validator struct {
 }
 
 type Options struct {
-	// EnableShapes makes LoadMetadata read shapes.txt.
+	// EnableShapes is kept for callers of LoadMetadata; the constructors always read shapes.txt for the service area, as canonical does.
 	EnableShapes bool
 	// Now is the check time; zero means time.Now().
 	Now time.Time
@@ -34,11 +35,11 @@ type Options struct {
 
 // NewValidator creates a validator that requires static GTFS for full validation.
 func NewValidator(gtfsZipPath string, opts Options) (*Validator, error) {
-	md, err := LoadMetadata(gtfsZipPath, !opts.EnableShapes)
+	ix, err := LoadStaticIndexPath(gtfsZipPath)
 	if err != nil {
 		return nil, err
 	}
-	return &Validator{opts: opts, static: md}, nil
+	return &Validator{opts: opts, static: ix}, nil
 }
 
 // NewValidatorFromBytes creates a validator from raw GTFS zip data in memory.
@@ -62,11 +63,11 @@ func NewValidator(gtfsZipPath string, opts Options) (*Validator, error) {
 //	}
 //	valid, result := validator.ValidateIteration(ctx, feed, nil)
 func NewValidatorFromBytes(zipData []byte, opts Options) (*Validator, error) {
-	md, err := LoadMetadataFromBytes(zipData, !opts.EnableShapes)
+	ix, err := LoadStaticIndex(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return nil, err
 	}
-	return &Validator{opts: opts, static: md}, nil
+	return &Validator{opts: opts, static: ix}, nil
 }
 
 // NewValidatorFromInput creates a validator from a GTFS source that can be
