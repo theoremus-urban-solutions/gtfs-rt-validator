@@ -135,6 +135,8 @@ func TestStaticIndexSofiaLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Two collections let finalizers left by earlier tests run before the count starts.
+	runtime.GC()
 	runtime.GC()
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
@@ -146,7 +148,7 @@ func TestStaticIndexSofiaLoad(t *testing.T) {
 	}
 	runtime.GC()
 	runtime.ReadMemStats(&after)
-	kept := float64(after.HeapAlloc-before.HeapAlloc) / (1 << 20)
+	kept := float64(int64(after.HeapAlloc)-int64(before.HeapAlloc)) / (1 << 20)
 	t.Logf("Sofia: %d trips, %d stop_times rows, %d stops; load %v, kept %.1f MiB, allocated %.0f MiB during load",
 		len(ix.tripRecs), len(ix.stopRecs), len(ix.stopNames), took.Round(time.Millisecond), kept, float64(after.TotalAlloc-before.TotalAlloc)/(1<<20))
 	if took > 1500*time.Millisecond && !raceEnabled {
