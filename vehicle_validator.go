@@ -1,28 +1,25 @@
 package validator
 
 import (
-	"context"
 	"fmt"
-
-	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
 
 type VehicleValidator struct {
 	RTOnly bool // When true, skip checks that require static GTFS (E028 bbox)
 }
 
-func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata, feed, _, _ *rt.FeedMessage) []ErrorList {
-	var out []ErrorList
-	seen := make(map[string]struct{})
+func (v VehicleValidator) Validate(c *Check) {
+	feed := c.Feed
+	var seen map[string]struct{}
 
 	for _, e := range feed.GetEntity() {
 		eid := e.GetId()
 		if tu := e.GetTripUpdate(); tu != nil {
 			if tu.GetVehicle() == nil || tu.GetVehicle().GetId() == "" {
 				tripID := tu.GetTrip().GetTripId()
-				out = append(out, errorListDetailed("W002", "trip_update", eid, "", map[string]string{
+				c.add("W002", "trip_update", eid, "", map[string]string{
 					"trip_id": tripID,
-				}))
+				})
 			}
 		}
 		if vp := e.GetVehicle(); vp != nil {
@@ -31,13 +28,16 @@ func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata,
 				vid = vp.GetVehicle().GetId()
 			}
 			if vid == "" {
-				out = append(out, errorListDetailed("W002", "vehicle", eid, "", nil))
+				c.add("W002", "vehicle", eid, "", nil)
 			} else {
 				if _, dup := seen[vid]; dup {
-					out = append(out, errorListDetailed("E052", "vehicle.id "+vid, eid, vid, map[string]string{
+					c.add("E052", "vehicle.id "+vid, eid, vid, map[string]string{
 						"vehicle_id": vid,
-					}))
+					})
 				} else {
+					if seen == nil {
+						seen = make(map[string]struct{})
+					}
 					seen[vid] = struct{}{}
 				}
 			}
@@ -54,46 +54,35 @@ func (v VehicleValidator) Validate(ctx context.Context, _ int64, meta *Metadata,
 				} else {
 					details = map[string]string{"vehicle_id": vid}
 				}
-				out = append(out, errorListDetailed("E026", "vehicle.position", eid, "", details))
+				c.add("E026", "vehicle.position", eid, "", details)
 			} else {
 				lat := float64(pos.GetLatitude())
 				lon := float64(pos.GetLongitude())
 				if !IsBearingValid(true, pos.GetBearing()) {
-					out = append(out, errorListDetailed("E027", "vehicle.position.bearing", eid, fmt.Sprintf("%.2f", pos.GetBearing()), map[string]string{
+					c.add("E027", "vehicle.position.bearing", eid, fmt.Sprintf("%.2f", pos.GetBearing()), map[string]string{
 						"vehicle_id": vid,
 						"latitude":   fmt.Sprintf("%f", lat),
 						"longitude":  fmt.Sprintf("%f", lon),
-					}))
+					})
 				}
 				if s := pos.GetSpeed(); s < 0 || s > 26 {
-					out = append(out, errorListDetailed("W004", "vehicle.position.speed", eid, fmt.Sprintf("%.2f", s), map[string]string{
+					c.add("W004", "vehicle.position.speed", eid, fmt.Sprintf("%.2f", s), map[string]string{
 						"vehicle_id": vid,
 						"latitude":   fmt.Sprintf("%f", lat),
 						"longitude":  fmt.Sprintf("%f", lon),
-					}))
+					})
 				}
 				// E028: Skip bbox check in RT-only mode (requires static GTFS)
-				if !v.RTOnly && meta != nil {
-					if meta.ShapeBBoxBuffered != nil {
-						if !meta.ShapeBBoxBuffered.Contains(lat, lon) {
-							out = append(out, errorListDetailed("E028", "vehicle.position", eid, "", map[string]string{
-								"vehicle_id": vid,
-								"latitude":   fmt.Sprintf("%f", lat),
-								"longitude":  fmt.Sprintf("%f", lon),
-							}))
-						}
-					} else {
-						if !meta.StopBBoxBuffered.Contains(lat, lon) {
-							out = append(out, errorListDetailed("E028", "vehicle.position", eid, "", map[string]string{
-								"vehicle_id": vid,
-								"latitude":   fmt.Sprintf("%f", lat),
-								"longitude":  fmt.Sprintf("%f", lon),
-							}))
-						}
+				if !v.RTOnly && c.Static != nil {
+					if area, ok := c.Static.ServiceArea(); ok && !area.Contains(lat, lon) {
+						c.add("E028", "vehicle.position", eid, "", map[string]string{
+							"vehicle_id": vid,
+							"latitude":   fmt.Sprintf("%f", lat),
+							"longitude":  fmt.Sprintf("%f", lon),
+						})
 					}
 				}
 			}
 		}
 	}
-	return out
 }

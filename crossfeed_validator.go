@@ -1,17 +1,11 @@
 package validator
 
-import (
-	"context"
-
-	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
-)
-
 type CrossFeedValidator struct{}
 
-func (CrossFeedValidator) Validate(ctx context.Context, _ int64, _ *Metadata, feed, _ *rt.FeedMessage, combined *rt.FeedMessage) []ErrorList {
-	var out []ErrorList
+func (CrossFeedValidator) Validate(c *Check) {
+	combined := c.Combined
 	if combined == nil {
-		return out
+		return
 	}
 	tuTripToVeh := map[string]string{}
 	tuVehToTrip := map[string]string{}
@@ -51,36 +45,35 @@ func (CrossFeedValidator) Validate(ctx context.Context, _ int64, _ *Metadata, fe
 		}
 	}
 	if !hasTU || !hasVP {
-		return out
+		return
 	}
 
 	for tid, vid := range tuTripToVeh {
 		if _, ok := vpTripToVeh[tid]; !ok {
-			out = append(out, errorListDetailed("W003", "trip_id "+tid, tuTripToEntity[tid], tid, map[string]string{
+			c.add("W003", "trip_id "+tid, tuTripToEntity[tid], tid, map[string]string{
 				"trip_id":         tid,
 				"vehicle_id":      vid,
 				"missing_in_feed": "VehiclePosition",
-			}))
+			})
 		}
 	}
 	for vid, tid := range vpVehToTrip {
 		if _, ok := tuVehToTrip[vid]; !ok {
-			out = append(out, errorListDetailed("W003", "vehicle_id "+vid, vpVehToEntity[vid], vid, map[string]string{
+			c.add("W003", "vehicle_id "+vid, vpVehToEntity[vid], vid, map[string]string{
 				"vehicle_id":      vid,
 				"trip_id":         tid,
 				"missing_in_feed": "TripUpdate",
-			}))
+			})
 		}
 	}
 
 	for tid, vid := range tuTripToVeh {
 		if v2, ok := vpTripToVeh[tid]; ok && v2 != vid {
-			out = append(out, errorListDetailed("E047", "trip_id "+tid, tuTripToEntity[tid], "", map[string]string{
-				"trip_id":               tid,
-				"trip_update_vehicle":   vid,
+			c.add("E047", "trip_id "+tid, tuTripToEntity[tid], "", map[string]string{
+				"trip_id":                  tid,
+				"trip_update_vehicle":      vid,
 				"vehicle_position_vehicle": v2,
-			}))
+			})
 		}
 	}
-	return out
 }

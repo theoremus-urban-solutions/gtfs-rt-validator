@@ -32,6 +32,14 @@ func aggregateByRuleID(lists []ErrorList) []ErrorList {
 	return out
 }
 
+// ruleCount is the rule's full count, which can exceed its kept samples.
+func ruleCount(res Result, el ErrorList) int {
+	if n, ok := res.Counts[el.Rule.ID]; ok {
+		return n
+	}
+	return len(el.Occurrences)
+}
+
 // RenderConsole renders a human-readable summary for console output.
 func RenderConsole(res Result) string {
 	if len(res.Lists) == 0 {
@@ -39,7 +47,7 @@ func RenderConsole(res Result) string {
 	}
 	var b strings.Builder
 	for _, el := range aggregateByRuleID(res.Lists) {
-		fmt.Fprintf(&b, "%s [%s] x%d - %s\n", string(el.Rule.ID), el.Rule.Severity, len(el.Occurrences), el.Rule.Title)
+		fmt.Fprintf(&b, "%s [%s] x%d - %s\n", string(el.Rule.ID), el.Rule.Severity, ruleCount(res, el), el.Rule.Title)
 	}
 	return b.String()
 }
@@ -60,9 +68,9 @@ type SummaryItem struct {
 func Summarize(res Result) []SummaryItem {
 	counts := map[string]int{}
 	sev := map[string]string{}
-	for _, el := range res.Lists {
+	for _, el := range aggregateByRuleID(res.Lists) {
 		id := string(el.Rule.ID)
-		counts[id] += len(el.Occurrences)
+		counts[id] = ruleCount(res, el)
 		sev[id] = string(el.Rule.Severity)
 	}
 	ids := make([]string, 0, len(counts))

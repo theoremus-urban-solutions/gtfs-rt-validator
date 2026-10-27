@@ -33,6 +33,10 @@ type Result struct {
 	Lists    []ErrorList
 	Errors   []Occurrence
 	Warnings []Occurrence
+	// Counts holds every occurrence per rule, including those past the sample cap.
+	Counts map[RuleID]int `json:",omitempty"`
+	// Valid is false when any ERROR rule fired.
+	Valid bool
 }
 
 var rules = map[RuleID]ValidationRule{
@@ -126,17 +130,4 @@ func GetRule(id RuleID) ValidationRule {
 		return r
 	}
 	return ValidationRule{ID: id}
-}
-
-// errorListDetailed creates an ErrorList with a detailed Occurrence
-func errorListDetailed(id, prefix, entityID, value string, details map[string]string) ErrorList {
-	return ErrorList{
-		Rule: GetRule(RuleID(id)),
-		Occurrences: []Occurrence{{
-			Prefix:   prefix,
-			EntityID: entityID,
-			Value:    value,
-			Details:  details,
-		}},
-	}
 }

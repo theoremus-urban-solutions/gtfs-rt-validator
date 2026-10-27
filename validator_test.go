@@ -18,11 +18,8 @@ func TestNewRTOnlyValidator(t *testing.T) {
 	if v == nil {
 		t.Fatal("NewRTOnlyValidator returned nil")
 	}
-	if v.meta != nil {
-		t.Error("RT-only validator should have nil metadata")
-	}
-	if !v.rtOnly {
-		t.Error("RT-only validator should have rtOnly=true")
+	if v.static != nil {
+		t.Error("RT-only validator should have no static release")
 	}
 }
 
@@ -274,20 +271,17 @@ func TestVehicleValidator_RTOnlySkipsBBox(t *testing.T) {
 		},
 	}
 
-	// With nil metadata, both should work but full would check bbox if meta existed
-	resultsRT := vRT.Validate(ctx, now, nil, feed, nil, nil)
-	resultsFull := vFull.Validate(ctx, now, nil, feed, nil, nil)
+	far := &Metadata{StopBBoxBuffered: Rect{MinLat: 42, MinLon: 23, MaxLat: 43, MaxLon: 24}}
+	cRT := &Check{Ctx: ctx, NowMs: now, Static: far, Feed: feed, max: -1}
+	vRT.Validate(cRT)
+	cNil := &Check{Ctx: ctx, NowMs: now, Feed: feed, max: -1}
+	vFull.Validate(cNil)
 
-	// Neither should have E028 with nil metadata
-	for _, el := range resultsRT {
-		if el.Rule.ID == "E028" {
-			t.Error("RT-only should never produce E028")
-		}
+	if cRT.counts["E028"] != 0 {
+		t.Error("RT-only should never produce E028")
 	}
-	for _, el := range resultsFull {
-		if el.Rule.ID == "E028" {
-			t.Error("Full mode with nil metadata should not produce E028")
-		}
+	if cNil.counts["E028"] != 0 {
+		t.Error("Full mode with no static release should not produce E028")
 	}
 }
 

@@ -2,24 +2,34 @@ package validator
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
 
 type FeedEntityValidator interface {
-	Validate(ctx context.Context, now int64, meta *Metadata, feed, prev, combined *rt.FeedMessage) []ErrorList
+	Validate(c *Check)
 }
 
+// Validator checks successive builds of one feed and remembers the previous header between calls.
 type Validator struct {
 	opts   Options
-	meta   *Metadata
-	prev   *rt.FeedMessage
-	rtOnly bool
+	static Static
+
+	mu   sync.Mutex
+	prev *PrevHeader
 }
 
 type Options struct {
+	// EnableShapes makes LoadMetadata read shapes.txt.
 	EnableShapes bool
+	// Now is the check time; zero means time.Now().
+	Now time.Time
+	// Combined is the merged TripUpdates and VehiclePositions feed for the cross-feed rules.
+	Combined *rt.FeedMessage
+	// MaxSamplesPerRule caps the occurrences kept per rule; 0 means 5 and a negative value keeps all.
+	MaxSamplesPerRule int
 }
 
 // NewValidator creates a validator that requires static GTFS for full validation.
@@ -28,7 +38,7 @@ func NewValidator(gtfsZipPath string, opts Options) (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Validator{opts: opts, meta: md, rtOnly: false}, nil
+	return &Validator{opts: opts, static: md}, nil
 }
 
 // NewValidatorFromBytes creates a validator from raw GTFS zip data in memory.
@@ -56,7 +66,7 @@ func NewValidatorFromBytes(zipData []byte, opts Options) (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Validator{opts: opts, meta: md, rtOnly: false}, nil
+	return &Validator{opts: opts, static: md}, nil
 }
 
 // NewValidatorFromInput creates a validator from a GTFS source that can be
@@ -77,37 +87,28 @@ func NewValidatorFromInput(gtfsInput string, opts Options) (*Validator, error) {
 // without requiring static GTFS data. Use this for fast fail-fast validation
 // before loading expensive static GTFS metadata.
 func NewRTOnlyValidator(opts Options) *Validator {
-	return &Validator{opts: opts, meta: nil, rtOnly: true}
+	return &Validator{opts: opts}
 }
 
+// NewValidatorWithStatic creates a validator over an already loaded release; nil runs only the GTFS-RT rules.
+func NewValidatorWithStatic(static Static, opts Options) *Validator {
+	return &Validator{opts: opts, static: static}
+}
+
+// ValidateIteration checks the next build of the same feed and keeps every occurrence.
 func (v *Validator) ValidateIteration(ctx context.Context, feed *rt.FeedMessage, combined *rt.FeedMessage) (bool, Result) {
-	now := time.Now().UnixMilli()
-	var lists []ErrorList
-	validators := DefaultValidators()
-	if v.rtOnly {
-		validators = RTOnlyValidators()
+	opts := v.opts
+	opts.Combined = combined
+	if opts.MaxSamplesPerRule == 0 {
+		opts.MaxSamplesPerRule = -1
 	}
-	for _, rule := range validators {
-		lists = append(lists, rule.Validate(ctx, now, v.meta, feed, v.prev, combined)...)
-	}
-	v.prev = feed
-	var errorsFlat, warningsFlat []Occurrence
-	valid := true
-	for _, l := range lists {
-		if l.Rule.Severity == Error {
-			if len(l.Occurrences) > 0 {
-				valid = false
-			}
-			errorsFlat = append(errorsFlat, l.Occurrences...)
-		} else if l.Rule.Severity == Warning {
-			warningsFlat = append(warningsFlat, l.Occurrences...)
-		}
-	}
-	res := Result{Lists: lists, Errors: errorsFlat, Warnings: warningsFlat}
-	return valid, res
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	res := ValidateFeed(ctx, v.static, feed, v.prev, opts)
+	h := HeaderOf(feed)
+	v.prev = &h
+	return res.Valid, res
 }
-
-// note: for deterministic tests, wrap time.Now in tests if needed
 
 // BuildCombined chooses the header with the max timestamp and concatenates entities.
 func BuildCombined(feeds ...*rt.FeedMessage) *rt.FeedMessage {
