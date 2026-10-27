@@ -149,7 +149,7 @@ func TestStaticIndexSofiaLoad(t *testing.T) {
 	kept := float64(after.HeapAlloc-before.HeapAlloc) / (1 << 20)
 	t.Logf("Sofia: %d trips, %d stop_times rows, %d stops; load %v, kept %.1f MiB, allocated %.0f MiB during load",
 		len(ix.tripRecs), len(ix.stopRecs), len(ix.stopNames), took.Round(time.Millisecond), kept, float64(after.TotalAlloc-before.TotalAlloc)/(1<<20))
-	if took > 1500*time.Millisecond {
+	if took > 1500*time.Millisecond && !raceEnabled {
 		t.Errorf("load took %v, budget 1.5 s", took)
 	}
 	if kept > 12 {

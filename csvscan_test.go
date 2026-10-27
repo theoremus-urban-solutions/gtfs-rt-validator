@@ -96,8 +96,10 @@ func TestStartFormatsMatchRegexps(t *testing.T) {
 	}
 	walk(nil, 7)
 	// Length 8 with the digits on each boundary: hour tens 2 and 3, minute tens 5 and 6.
-	alphabet = "02356:x"
-	walk(nil, 8)
+	if !raceEnabled {
+		alphabet = "02356:x"
+		walk(nil, 8)
+	}
 	for _, s := range []string{"12:00:00", "29:59:59", "30:00:00", "02:00:00", "2:00:00", "1:00:00", "20260101", "2026010", "202601011", "12:60:00", "12:00:60"} {
 		if validStartTime(s) != reTime.MatchString(s) || validStartDate(s) != reDate.MatchString(s) {
 			t.Errorf("%q differs from the regexp", s)
