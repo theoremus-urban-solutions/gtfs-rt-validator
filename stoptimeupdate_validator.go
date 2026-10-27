@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"strconv"
 
 	rt "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
@@ -34,14 +35,28 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 				tripStatic = nil
 			}
 		}
-		var hadE051 bool
-		var prevSeq int = -1
-		var prevStopID string
+		stus := tu.GetStopTimeUpdate()
+		// gi walks the GTFS stops once, in step with the updates, as canonical does.
+		gi, nStops := 0, trip.NumStops()
+		var (
+			e009, ordered, fromStopID = false, true, false
+			nSeqs                     int
+			lastSeq, prevSeq          uint32
+			prevStopID                string
+		)
+		addSeq := func(seq uint32) {
+			if nSeqs > 0 && seq <= lastSeq {
+				ordered = false
+			}
+			lastSeq = seq
+			nSeqs++
+		}
 
-		for _, stu := range tu.GetStopTimeUpdate() {
+		for i, stu := range stus {
 			stopID := stu.GetStopId()
 			stopSeq := stu.GetStopSequence()
-			stopSeqStr := fmt.Sprintf("%d", stopSeq)
+			stopSeqStr := strconv.FormatUint(uint64(stopSeq), 10)
+			hasSeq, hasStop := stu.StopSequence != nil, stu.StopId != nil
 
 			if stu.ScheduleRelationship == nil {
 				c.add("W009", "trip_id "+tripID, eid, "", map[string]string{
@@ -51,142 +66,117 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 				})
 			}
 
-			if stopID == "" && stopSeq == 0 {
-				c.add("E040", "trip_id "+tripID, eid, "", map[string]string{
+			if !e009 && tripStatic != nil && trip.RepeatsStop && !hasSeq {
+				c.add("E009", "trip_id "+tripID, eid, "", map[string]string{
 					"trip_id": tripID,
+					"stop_id": stopID,
 				})
+				e009 = true
 			}
-
-			if stu.GetScheduleRelationship() == rt.TripUpdate_StopTimeUpdate_NO_DATA {
-				if stu.GetArrival() != nil || stu.GetDeparture() != nil {
-					c.add("E042", "trip_id "+tripID, eid, "", map[string]string{
-						"trip_id":       tripID,
-						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
-					})
-				}
-				continue
-			}
-
-			if stu.GetScheduleRelationship() != rt.TripUpdate_StopTimeUpdate_SKIPPED && stu.GetScheduleRelationship() != rt.TripUpdate_StopTimeUpdate_NO_DATA {
-				if stu.GetArrival() == nil && stu.GetDeparture() == nil {
-					c.add("E043", "trip_id "+tripID, eid, "", map[string]string{
-						"trip_id":       tripID,
-						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
-					})
-				}
-			}
-
-			// SKIPPED stops need no delay or time.
-			skipped := stu.GetScheduleRelationship() == rt.TripUpdate_StopTimeUpdate_SKIPPED
-			if ev := stu.GetArrival(); ev != nil && !skipped {
-				if ev.Delay == nil && ev.Time == nil {
-					c.add("E044", "trip_id "+tripID, eid, "", map[string]string{
-						"trip_id":       tripID,
-						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
-						"event_type":    "arrival",
-					})
-				}
-			}
-			if ev := stu.GetDeparture(); ev != nil && !skipped {
-				if ev.Delay == nil && ev.Time == nil {
-					c.add("E044", "trip_id "+tripID, eid, "", map[string]string{
-						"trip_id":       tripID,
-						"stop_id":       stopID,
-						"stop_sequence": stopSeqStr,
-						"event_type":    "departure",
-					})
-				}
-			}
-
-			if prevSeq >= 0 {
-				if int(stopSeq) == prevSeq {
+			if i > 0 {
+				if hasSeq && stopSeq == prevSeq {
 					c.add("E036", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
 						"trip_id":       tripID,
 						"stop_sequence": stopSeqStr,
 					})
 				}
-				if stopID != "" && prevStopID != "" && stopID == prevStopID {
+				if prevStopID != "" && hasStop && stopID == prevStopID {
 					c.add("E037", "trip_id "+tripID, eid, stopID, map[string]string{
 						"trip_id":       tripID,
 						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
 					})
 				}
-				if stopSeq != 0 && int(stopSeq) <= prevSeq {
-					c.add("E002", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
-						"trip_id":                tripID,
-						"stop_sequence":          stopSeqStr,
-						"previous_stop_sequence": fmt.Sprintf("%d", prevSeq),
-					})
-				}
 			}
-			if stopSeq != 0 {
-				prevSeq = int(stopSeq)
-			}
-			if stopID != "" {
-				prevStopID = stopID
+			prevSeq, prevStopID = stopSeq, stopID
+			if hasSeq {
+				addSeq(stopSeq)
 			}
 
-			// E045, E051: Skip in RT-only mode (requires static GTFS stop_times)
-			if tripStatic != nil && stopSeq != 0 && stopID != "" {
-				if st, ok := findSeq(trip, stopSeq); ok {
-					if expectedStopID := st.StopID; expectedStopID != stopID {
-						c.add("E045", "trip_id "+tripID, eid, stopID, map[string]string{
-							"trip_id":       tripID,
-							"stop_sequence": stopSeqStr,
-							"expected":      expectedStopID,
-							"actual":        stopID,
-						})
+			unknownSeq := false
+			if tripStatic != nil {
+				for gi < nStops {
+					st := trip.StopAt(gi)
+					foundSeq := hasSeq && st.Sequence == stopSeq
+					if foundSeq {
+						if hasStop && st.StopID != stopID {
+							c.add("E045", "trip_id "+tripID, eid, stopID, map[string]string{
+								"trip_id":       tripID,
+								"stop_sequence": stopSeqStr,
+								"expected":      st.StopID,
+								"actual":        stopID,
+							})
+						}
+						checkE046(c, eid, tripID, stu, st)
 					}
-				} else {
-					c.add("E051", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
+					foundStop := hasStop && st.StopID == stopID
+					gi++
+					if foundSeq {
+						break
+					}
+					if hasSeq && gi == nStops {
+						unknownSeq = true
+					}
+					if !hasSeq && foundStop {
+						addSeq(st.Sequence)
+						fromStopID = true
+						checkE046(c, eid, tripID, stu, st)
+						break
+					}
+				}
+			}
+
+			if !hasSeq && !hasStop {
+				c.add("E040", "trip_id "+tripID, eid, "", map[string]string{
+					"trip_id": tripID,
+				})
+			}
+			sr := stu.GetScheduleRelationship()
+			if sr == rt.TripUpdate_StopTimeUpdate_NO_DATA {
+				if stu.Arrival != nil || stu.Departure != nil {
+					c.add("E042", "trip_id "+tripID, eid, "", map[string]string{
 						"trip_id":       tripID,
+						"stop_id":       stopID,
 						"stop_sequence": stopSeqStr,
 					})
-					hadE051 = true
+				}
+			} else if sr != rt.TripUpdate_StopTimeUpdate_SKIPPED && stu.Arrival == nil && stu.Departure == nil {
+				c.add("E043", "trip_id "+tripID, eid, "", map[string]string{
+					"trip_id":       tripID,
+					"stop_id":       stopID,
+					"stop_sequence": stopSeqStr,
+				})
+			}
+			// SKIPPED stops need no delay or time.
+			if sr != rt.TripUpdate_StopTimeUpdate_SKIPPED {
+				for _, ev := range [2]struct {
+					e    *rt.TripUpdate_StopTimeEvent
+					name string
+				}{{stu.Arrival, "arrival"}, {stu.Departure, "departure"}} {
+					if ev.e != nil && ev.e.Delay == nil && ev.e.Time == nil {
+						c.add("E044", "trip_id "+tripID, eid, "", map[string]string{
+							"trip_id":       tripID,
+							"stop_id":       stopID,
+							"stop_sequence": stopSeqStr,
+							"event_type":    ev.name,
+						})
+					}
 				}
 			}
-			if hadE051 {
+
+			if unknownSeq {
+				c.add("E051", "trip_id "+tripID, eid, stopSeqStr, map[string]string{
+					"trip_id":       tripID,
+					"stop_sequence": stopSeqStr,
+				})
 				break
 			}
+		}
 
-			// E046: Skip in RT-only mode (requires static GTFS stop_times)
-			if tripStatic != nil && stu.StopSequence != nil {
-				if st, ok := findSeq(trip, stopSeq); ok {
-					if ev := stu.GetArrival(); ev != nil && ev.Time == nil && !st.ArrivalSet {
-						c.add("E046", "trip_id "+tripID, eid, "arrival", map[string]string{
-							"trip_id":       tripID,
-							"stop_id":       stopID,
-							"stop_sequence": stopSeqStr,
-							"event":         "arrival",
-						})
-					}
-					if ev := stu.GetDeparture(); ev != nil && ev.Time == nil && !st.DepartureSet {
-						c.add("E046", "trip_id "+tripID, eid, "departure", map[string]string{
-							"trip_id":       tripID,
-							"stop_id":       stopID,
-							"stop_sequence": stopSeqStr,
-							"event":         "departure",
-						})
-					}
-				}
-			}
-
-			// E009: Skip in RT-only mode (requires static GTFS trips with multi-stops)
-			if tripStatic != nil {
-				if trip.RepeatsStop {
-					if stopSeq == 0 {
-						c.add("E009", "trip_id "+tripID, eid, "", map[string]string{
-							"trip_id": tripID,
-							"stop_id": stopID,
-						})
-					}
-				}
-			}
-
+		if !ordered || (fromStopID && nSeqs < len(stus)) {
+			c.add("E002", "trip_id "+tripID, eid, "", map[string]string{
+				"trip_id": tripID,
+			})
 		}
 
 		checkStopTimes(c, eid, tripID, tu.GetStopTimeUpdate())
@@ -240,12 +230,22 @@ func checkStopTimes(c *Check, eid, tripID string, stus []*rt.TripUpdate_StopTime
 	}
 }
 
-// findSeq returns the GTFS stop of trip at stop_sequence seq.
-func findSeq(trip TripInfo, seq uint32) (ScheduledStop, bool) {
-	for i, n := 0, trip.NumStops(); i < n; i++ {
-		if st := trip.StopAt(i); st.Sequence == seq {
-			return st, true
-		}
+// checkE046 raises E046 for each sent arrival or departure that has no time where GTFS has none either.
+func checkE046(c *Check, eid, tripID string, stu *rt.TripUpdate_StopTimeUpdate, st ScheduledStop) {
+	if ev := stu.Arrival; ev != nil && ev.Time == nil && !st.ArrivalSet {
+		c.add("E046", "trip_id "+tripID, eid, "arrival", map[string]string{
+			"trip_id":       tripID,
+			"stop_id":       st.StopID,
+			"stop_sequence": strconv.FormatUint(uint64(st.Sequence), 10),
+			"event":         "arrival",
+		})
 	}
-	return ScheduledStop{}, false
+	if ev := stu.Departure; ev != nil && ev.Time == nil && !st.DepartureSet {
+		c.add("E046", "trip_id "+tripID, eid, "departure", map[string]string{
+			"trip_id":       tripID,
+			"stop_id":       st.StopID,
+			"stop_sequence": strconv.FormatUint(uint64(st.Sequence), 10),
+			"event":         "departure",
+		})
+	}
 }
