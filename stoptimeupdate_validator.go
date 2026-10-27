@@ -30,7 +30,7 @@ func (v StopTimeUpdateValidator) Validate(c *Check) {
 		tripStatic := static
 		if static != nil {
 			var p Presence
-			if trip, p = static.Trip(tripID, tu.GetTrip().GetStartDate()); p == NotCovered {
+			if trip, p = static.Trip(tripID, tu.GetTrip().GetStartDate()); p != Present {
 				tripStatic = nil
 			}
 		}
