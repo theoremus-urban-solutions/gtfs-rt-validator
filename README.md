@@ -194,83 +194,34 @@ See [RULES.md](RULES.md) for the complete list of validation rules.
 
 ## Benchmarks
 
-Benchmarks run on Apple Silicon (M-series), December 2, 2025.
+Sofia, 29 October 2026. One saved snapshot of the static GTFS and the three realtime feeds was checked by v0.6.0 and by v0.7.0, on a Linux VM with 8 vCPUs and Go 1.24.2. Each feed is checked on its own, with `NewValidator(zip, Options{EnableShapes: true})` and `ValidateIteration(ctx, feed, nil)`.
 
-### Test Data
+| Input | Size | Content |
+|---|---|---|
+| Static GTFS | 19.0 MB zip | 29,199 trips, 677,289 stop_times, 823,645 shape points |
+| TripUpdates | 903 KB | 1,278 entities |
+| VehiclePositions | 66 KB | 573 entities |
+| Alerts | 104 KB | 21 entities |
 
-| Dataset | GTFS Static | Trip Updates | Vehicle Positions | Alerts |
-|---------|-------------|--------------|-------------------|--------|
-| Sofia   | 15.0 MB     | 931 KB       | 73 KB             | 151 KB |
-| Pleven  | 218 KB      | 2.2 KB       | -                 | -      |
+| Measure | v0.6.0 | v0.7.0 |
+|---|---|---|
+| Static load, median of 5 | 2.65 s | 0.79 s |
+| Memory allocated while loading | 567 MiB | 21 MiB |
+| Heap kept after loading | 201 MiB | 8.4 MiB |
+| Peak RSS, load and all 3 feeds | 337 MiB | 44 MiB |
+| TripUpdates check, median of 30 | 10.8 ms | 8.4 ms |
+| VehiclePositions check, median of 30 | 0.57 ms | 0.65 ms |
+| Alerts check, median of 30 | 3 µs | 3 µs |
 
-### Sofia - Full Validation (GTFS Static + 3 RT Feeds)
+The saving comes from `StaticIndex`, which keeps only the static columns the rules read.
 
-Validates TripUpdates, VehiclePositions, and Alerts against a 15 MB static GTFS.
+Both versions report the same errors and warnings, on this snapshot and on five more taken 30 s apart:
 
-| Run | Time (s) | Memory (MB) |
-|-----|----------|-------------|
-| 1   | 1.10     | 272         |
-| 2   | 0.63     | 272         |
-| 3   | 0.62     | 268         |
-| 4   | 0.61     | 269         |
-| 5   | 0.61     | 265         |
+- E022 46–54 times per TripUpdates feed;
+- W002 on every TripUpdate;
+- W004 on 158–183 vehicles;
+- W008 whenever a header is over 65 s old.
 
-**Average: 0.71s, ~269 MB peak memory**
+None of the rules v0.7.0 corrected fire on Sofia's data.
 
-### Sofia - Realtime-Only Validation (No Static GTFS)
-
-Validates TripUpdates, VehiclePositions, and Alerts without static GTFS reference.
-
-| Run | Time (ms) | Memory (MB) |
-|-----|-----------|-------------|
-| 1   | 10        | 21          |
-| 2   | 10        | 21          |
-| 3   | 10        | 21          |
-| 4   | 10        | 21          |
-| 5   | 10        | 21          |
-
-**Average: 10ms, ~21 MB peak memory**
-
-### Pleven - Full Validation (GTFS Static + TripUpdates)
-
-Validates TripUpdates against a 218 KB static GTFS.
-
-| Run | Time (ms) | Memory (MB) |
-|-----|-----------|-------------|
-| 1   | 20        | 17          |
-| 2   | 10        | 17          |
-| 3   | 10        | 16          |
-| 4   | 10        | 16          |
-| 5   | 10        | 17          |
-
-**Average: 12ms, ~17 MB peak memory**
-
-### Pleven - Realtime-Only Validation (No Static GTFS)
-
-Validates TripUpdates without static GTFS reference.
-
-| Run | Time (ms) | Memory (MB) |
-|-----|-----------|-------------|
-| 1   | 10        | 6           |
-| 2   | <5        | 6           |
-| 3   | <5        | 6           |
-| 4   | <5        | 6           |
-| 5   | <5        | 6           |
-
-**Average: <5ms, ~6 MB peak memory**
-
-### Performance Summary
-
-| Test Case | Avg Time | Peak Memory | Speedup vs Full |
-|-----------|----------|-------------|-----------------|
-| Sofia Full (15MB static, 1MB RT) | 0.71s | 269 MB | - |
-| Sofia RT-Only (1MB RT) | 10ms | 21 MB | 71x faster, 13x less memory |
-| Pleven Full (218KB static, 2KB RT) | 12ms | 17 MB | - |
-| Pleven RT-Only (2KB RT) | <5ms | 6 MB | ~3x faster, 3x less memory |
-
-### Key Findings
-
-1. **RT-only mode is significantly faster** - For Sofia (large dataset), RT-only validation is ~71x faster than full validation
-2. **Memory scales with GTFS static size** - Most memory usage comes from parsing the static GTFS
-3. **Small feeds validate nearly instantly** - Pleven RT-only completes in under 5ms
-4. **First run includes warmup** - Run 1 of Sofia full validation includes file system cache warming (~1.1s vs ~0.6s subsequent runs)
+Times are wall clock on a shared VM. Peak RSS is the process `VmHWM`. Protobuf decoding is not included.
